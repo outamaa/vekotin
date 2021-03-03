@@ -257,21 +257,30 @@ pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<()> {
     let ihdr = read_ihdr(&mut reader)?;
     println!("{:?}", ihdr);
 
-    
+
+    let mut data: Vec<u8> = Vec::new();
+
     // Loop through the chunks
     loop {
         let (chunk_length, chunk_type) = read_chunk_length_and_type(&mut reader)?;
         match chunk_type {
             ChunkType::IEND => break,
-            ChunkType::IDAT => (),
+            ChunkType::IDAT => {
+                // Read data chunk to `data`
+                let chunk_reader = reader.by_ref();
+                chunk_reader.take(chunk_length.into()).read_to_end(&mut data)?;
+            },
             ChunkType::PLTE => bail!("Can't handle PNGs with palette yet!"),
             ChunkType::IHDR => bail!("Encountered a second IHDR chunk"),
-            _ => println!("{:?}", chunk_type),
+            _ => {
+                println!("{:?}", chunk_type);
+                skip_bytes(&mut reader, chunk_length)?;
+            },
         }
-        skip_bytes(&mut reader, chunk_length)?;
         skip_crc(&mut reader)?;
     }
 
+    println!("Data length: {}", data.len());
 
     Ok(())
 }
