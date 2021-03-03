@@ -5,10 +5,16 @@ use std::path::Path;
 use std::str;
 use anyhow::{Result, bail};
 
-fn read_chunk_length<R: Read>(reader: &mut BufReader<R>) -> Result<u32> {
+fn read_u32<R: Read>(reader: &mut BufReader<R>) -> Result<u32> {
     let mut b = [0; 4];
     reader.read_exact(&mut b)?;
     Ok(u32::from_be_bytes(b))
+}
+
+fn read_u8<R: Read>(reader: &mut BufReader<R>) -> Result<u8> {
+    let mut b = [0; 1];
+    reader.read_exact(&mut b)?;
+    Ok(b[0])
 }
 
 #[derive(PartialEq, Debug)]
@@ -19,12 +25,6 @@ enum ChunkType {
     IEND,
     Ancillary(String),
 }
-
-struct Chunk<R: Read> {
-    chunk_type: ChunkType,
-    reader: BufReader<R>, 
-}
-
 
 fn read_chunck_type<R: Read>(reader: &mut BufReader<R>) -> Result<ChunkType> {
     use ChunkType::*;
@@ -45,7 +45,11 @@ fn read_chunck_type<R: Read>(reader: &mut BufReader<R>) -> Result<ChunkType> {
     Ok(chunk_type)
 }
 
-fn read_header<R: Read>(reader: &mut BufReader<R>) -> Result<()> {
+fn read_chunk_length_and_type<R: Read>(reader: &mut BufReader<R>) -> Result<(u32, ChunkType)> {
+    Ok( (read_u32(reader)?, read_chunck_type(reader)?))
+}
+
+fn read_png_header<R: Read>(reader: &mut BufReader<R>) -> Result<()> {
     let mut b = [0; 8];
     reader.read_exact(&mut b)?;
 
@@ -115,42 +119,159 @@ impl From<u8> for ColorType {
 }
 
 #[derive(PartialEq, Debug)]
+enum CompressionMethod {
+    Deflate,
+    Unknown,
+}
+
+impl From<u8> for CompressionMethod {
+    fn from(b: u8) -> Self {
+        use CompressionMethod::*;
+
+        match b {
+            0 => Deflate,
+            _ => Unknown,
+        }
+    }
+}
+
+#[derive(PartialEq, Debug)]
+enum FilterMethod {
+    Adaptive,
+    Unknown,
+}
+
+impl From<u8> for FilterMethod {
+    fn from(b: u8) -> Self {
+        use FilterMethod::*;
+
+        match b {
+            0 => Adaptive,
+            _ => Unknown,
+        }
+    }
+}
+
+#[derive(PartialEq, Debug)]
+enum InterlaceMethod {
+    None,
+    Adam7,
+    Unknown,
+}
+
+impl From<u8> for InterlaceMethod {
+    fn from(b: u8) -> Self {
+        use InterlaceMethod::*;
+
+        match b {
+            0 => None,
+            1 => Adam7,
+            _ => Unknown,
+        }
+    }
+}
+
+#[derive(PartialEq, Debug)]
 struct IHDR {
     width: u32,
     height: u32,
     bit_depth: BitDepth,
     color_type: ColorType,
+    compression_method: CompressionMethod,
+    filter_method: FilterMethod,
+    interlace_method: InterlaceMethod,
 }
 
+fn skip_crc<R: Read>(reader: &mut BufReader<R>) -> Result<()> {
+    read_u32(reader)?;
+    Ok(())
+}
 
 fn read_ihdr<R: Read>(reader: &mut BufReader<R>) -> Result<IHDR> {
 
-    let chunk_length = read_chunk_length(reader)?;
+    let chunk_length = read_u32(reader)?;
     let chunk_type = read_chunck_type(reader)?;
 
     if chunk_type != ChunkType::IHDR {
         bail!("First chunk must be IHDR, was {:?}", chunk_type);
     }
 
+    if chunk_length != 13 {
+        bail!("IHDR chunk length must be 13, not {}", chunk_length);
+    }
+
+    let width = read_u32(reader)?;
+    let height = read_u32(reader)?;
+    let bit_depth = BitDepth::from(read_u8(reader)?);
+    let color_type = ColorType::from(read_u8(reader)?);
+
+    let compression_method_byte = read_u8(reader)?;
+    let compression_method = CompressionMethod::from(compression_method_byte);
+    if compression_method == CompressionMethod::Unknown {
+        bail!("Unknown compression method {}", compression_method_byte);
+    }
+
+    let filter_method_byte = read_u8(reader)?;
+    let filter_method = FilterMethod::from(filter_method_byte);
+    if filter_method == FilterMethod::Unknown {
+        bail!("Unknown filter method {}", filter_method_byte);
+    }
+
+
+    let interlace_method_byte = read_u8(reader)?;
+    let interlace_method = InterlaceMethod::from(interlace_method_byte);
+    if interlace_method == InterlaceMethod::Unknown {
+        bail!("Unknown interlace method {}", interlace_method_byte);
+    }
+
+    skip_crc(reader)?;
+
     let ihdr = IHDR {
-        width: 0,
-        height: 0,
-        bit_depth: BitDepth::Invalid,
-        color_type: ColorType::Invalid,
+        width,
+        height,
+        bit_depth,
+        color_type,
+        compression_method,
+        filter_method,
+        interlace_method,
     };
-    
+
     Ok(ihdr)
+}
+
+// For development
+fn skip_bytes<R: Read>(reader: &mut BufReader<R>, n: u32) -> Result<()> {
+    let mut dummy = vec![0; n as usize];
+    reader.read_exact(&mut dummy[..])?;
+    Ok(())
 }
 
 pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<()> {
     let f = File::open(path)?;
     let mut reader = BufReader::new(f);
 
-    read_header(&mut reader)?;
+    // PNG header
+    read_png_header(&mut reader)?;
+
     // IHDR must be the first chunk.
     let ihdr = read_ihdr(&mut reader)?;
-
     println!("{:?}", ihdr);
+
+    
+    // Loop through the chunks
+    loop {
+        let (chunk_length, chunk_type) = read_chunk_length_and_type(&mut reader)?;
+        match chunk_type {
+            ChunkType::IEND => break,
+            ChunkType::IDAT => (),
+            ChunkType::PLTE => bail!("Can't handle PNGs with palette yet!"),
+            ChunkType::IHDR => bail!("Encountered a second IHDR chunk"),
+            _ => println!("{:?}", chunk_type),
+        }
+        skip_bytes(&mut reader, chunk_length)?;
+        skip_crc(&mut reader)?;
+    }
+
 
     Ok(())
 }
