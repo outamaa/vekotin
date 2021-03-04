@@ -8,6 +8,7 @@ use sdl2::keyboard::Keycode;
 use sdl2::video::GLProfile;
 
 mod loader;
+mod compression;
 
 pub struct Game {
     window: sdl2::video::Window,

@@ -4,6 +4,10 @@ use std::fs::File;
 use std::path::Path;
 use std::str;
 use anyhow::{Result, bail};
+use crate::compression::zlib;
+//
+// Helpers
+//
 
 fn read_u32<R: Read>(reader: &mut BufReader<R>) -> Result<u32> {
     let mut b = [0; 4];
@@ -16,6 +20,44 @@ fn read_u8<R: Read>(reader: &mut BufReader<R>) -> Result<u8> {
     reader.read_exact(&mut b)?;
     Ok(b[0])
 }
+
+// TODO actually check CRC
+fn skip_crc<R: Read>(reader: &mut BufReader<R>) -> Result<()> {
+    read_u32(reader)?;
+    Ok(())
+}
+
+// For development
+fn skip_bytes<R: Read>(reader: &mut BufReader<R>, n: u32) {
+    reader.consume(n as usize);
+}
+
+//
+// PNG file header
+//
+
+fn read_png_header<R: Read>(reader: &mut BufReader<R>) -> Result<()> {
+    let mut b = [0; 8];
+    reader.read_exact(&mut b)?;
+
+    if b[0] != 0x89
+    || b[1] != 0x50
+    || b[2] != 0x4E
+    || b[3] != 0x47
+    || b[4] != 0x0D
+    || b[5] != 0x0A
+    || b[6] != 0x1A
+    || b[7] != 0x0A
+    {
+        bail!("Not a PNG header: {:?}", b);
+    }
+
+    Ok(())
+}
+
+//
+// Chunks
+//
 
 #[derive(PartialEq, Debug)]
 enum ChunkType {
@@ -49,24 +91,10 @@ fn read_chunk_length_and_type<R: Read>(reader: &mut BufReader<R>) -> Result<(u32
     Ok( (read_u32(reader)?, read_chunck_type(reader)?))
 }
 
-fn read_png_header<R: Read>(reader: &mut BufReader<R>) -> Result<()> {
-    let mut b = [0; 8];
-    reader.read_exact(&mut b)?;
 
-    if b[0] != 0x89
-    || b[1] != 0x50
-    || b[2] != 0x4E
-    || b[3] != 0x47
-    || b[4] != 0x0D
-    || b[5] != 0x0A
-    || b[6] != 0x1A
-    || b[7] != 0x0A
-    {
-        bail!("Not a PNG header: {:?}", b);
-    }
-
-    Ok(())
-}
+//
+// IHDR
+//
 
 #[derive(PartialEq, Debug)]
 enum BitDepth {
@@ -182,13 +210,7 @@ struct IHDR {
     interlace_method: InterlaceMethod,
 }
 
-fn skip_crc<R: Read>(reader: &mut BufReader<R>) -> Result<()> {
-    read_u32(reader)?;
-    Ok(())
-}
-
 fn read_ihdr<R: Read>(reader: &mut BufReader<R>) -> Result<IHDR> {
-
     let chunk_length = read_u32(reader)?;
     let chunk_type = read_chunck_type(reader)?;
 
@@ -239,12 +261,10 @@ fn read_ihdr<R: Read>(reader: &mut BufReader<R>) -> Result<IHDR> {
     Ok(ihdr)
 }
 
-// For development
-fn skip_bytes<R: Read>(reader: &mut BufReader<R>, n: u32) -> Result<()> {
-    let mut dummy = vec![0; n as usize];
-    reader.read_exact(&mut dummy[..])?;
-    Ok(())
-}
+
+//
+// Public interface
+//
 
 pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<()> {
     let f = File::open(path)?;
@@ -274,13 +294,15 @@ pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<()> {
             ChunkType::IHDR => bail!("Encountered a second IHDR chunk"),
             _ => {
                 println!("{:?}", chunk_type);
-                skip_bytes(&mut reader, chunk_length)?;
+                skip_bytes(&mut reader, chunk_length);
             },
         }
         skip_crc(&mut reader)?;
     }
 
     println!("Data length: {}", data.len());
+    println!("{:?}", &data[..8]);
+    println!("{:?}", zlib::CompressionMethod::from(data[0]));
 
     Ok(())
 }
