@@ -301,8 +301,7 @@ pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<()> {
     }
 
     println!("Data length: {}", data.len());
-    println!("{:?}", &data[..8]);
-    println!("{:?}", zlib::CompressionMethod::from(data[0]));
+    zlib::decompress(&data)?;
 
     Ok(())
 }
