@@ -265,8 +265,13 @@ fn read_ihdr<R: Read>(reader: &mut BufReader<R>) -> Result<IHDR> {
 //
 // Public interface
 //
+pub struct Image {
+    pub width: u32,
+    pub height: u32,
+    pub data: Vec<u8>,
+}
 
-pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<()> {
+pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Image> {
     let f = File::open(path)?;
     let mut reader = BufReader::new(f);
 
@@ -278,7 +283,7 @@ pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<()> {
     println!("{:?}", ihdr);
 
 
-    let mut data: Vec<u8> = Vec::new();
+    let mut compressed_data: Vec<u8> = Vec::new();
 
     // Loop through the chunks
     loop {
@@ -288,7 +293,7 @@ pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<()> {
             ChunkType::IDAT => {
                 // Read data chunk to `data`
                 let chunk_reader = reader.by_ref();
-                chunk_reader.take(chunk_length.into()).read_to_end(&mut data)?;
+                chunk_reader.take(chunk_length.into()).read_to_end(&mut compressed_data)?;
             },
             ChunkType::PLTE => bail!("Can't handle PNGs with palette yet!"),
             ChunkType::IHDR => bail!("Encountered a second IHDR chunk"),
@@ -300,8 +305,15 @@ pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<()> {
         skip_crc(&mut reader)?;
     }
 
-    println!("Data length: {}", data.len());
-    zlib::decompress(&data)?;
+    println!("Data length: {}", compressed_data.len());
+    
+    let image_size: usize = (ihdr.width * ihdr.height * 4) as usize; // Assumes RGBA for now
+    let mut decompressed_data: Vec<u8> = Vec::with_capacity(image_size);
+    zlib::decompress(&compressed_data, &mut decompressed_data)?;
 
-    Ok(())
+    Ok(Image {
+        width: ihdr.width,
+        height: ihdr.height,
+        data: decompressed_data,
+    })
 }
