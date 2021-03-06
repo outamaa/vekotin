@@ -12,3 +12,13 @@ sdl2 = "0.34"
 emscripten_main_loop = "0.1"
 gl = "0.14"
 rand = "0.8"
+num = "0.4"
+
+[lib]
+name = "vekotin"
+path = "src/lib.rs"
+
+[[bin]]
+name = "vekotin-bin"
+path = "src/bin/bin.rs"
+doctest = true

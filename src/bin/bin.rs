@@ -1,14 +1,9 @@
-extern crate anyhow;
-extern crate sdl2;
-extern crate gl;
-
 use anyhow::Result;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::video::GLProfile;
 
-mod loader;
-mod compression;
+use vekotin::*;
 
 pub struct Game {
     window: sdl2::video::Window,
