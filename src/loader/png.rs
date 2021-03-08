@@ -1,9 +1,10 @@
 use std::io::prelude::*;
 use std::io::BufReader;
+use std::convert::TryFrom;
 use std::fs::File;
 use std::path::Path;
 use std::str;
-use anyhow::{Result, bail};
+use anyhow::{Result, bail, anyhow};
 use crate::compression::zlib;
 //
 // Helpers
@@ -285,14 +286,13 @@ pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Image> {
 
     // Loop through the chunks, copying data to `compressed_data`
     let mut compressed_data: Vec<u8> = Vec::new();
-    while process_chunk(&mut reader, &mut compressed_data)? {
-    }
+    while process_chunk(&mut reader, &mut compressed_data)? {}
 
     let mut decompressed_data: Vec<u8> = Vec::new();
     zlib::decompress(&compressed_data, &mut decompressed_data)?;
 
     let image_size: usize = (ihdr.width * ihdr.height * 4) as usize; // Assumes RGBA for now
-    let mut image: Vec<u8> = Vec::with_capacity(image_size);
+    let mut image: Vec<u8> = vec![0; image_size];
 
     apply_filters(&ihdr, &mut decompressed_data, &mut image);
 
@@ -303,14 +303,83 @@ pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Image> {
     })
 }
 
-fn apply_filters(ihdr: &IHDR, decompressed_data: &mut Vec<u8>, image: &mut Vec<u8>) {
+
+#[derive(Debug, PartialEq)]
+enum FilterAlgorithm {
+    None,
+    Sub,
+    Up,
+    Average,
+    Paeth,
+}
+
+impl TryFrom<u8> for FilterAlgorithm {
+    type Error = anyhow::Error;
+
+    fn try_from(b: u8) -> Result<Self, Self::Error> {
+        use FilterAlgorithm::*;
+        match b {
+            0 => Ok(None),
+            1 => Ok(Sub),
+            2 => Ok(Up),
+            3 => Ok(Average),
+            4 => Ok(Paeth),
+            _ => Err(anyhow!("Unknown filter algorithm")),
+        }
+    }
+}
+
+fn apply_filters(ihdr: &IHDR, decompressed_data: &mut Vec<u8>, image: &mut Vec<u8>) -> Result<()> {
     // Copy unfiltered data to `image`
     // TODO no need to copy, but first implement filters
-    let mut scanline_start_idx = 1;
-    let scanline_len = (ihdr.width * 4) as usize;
-    while scanline_start_idx < decompressed_data.len() {
-        image.write(&decompressed_data[scanline_start_idx..scanline_start_idx + scanline_len]);
-        scanline_start_idx += (ihdr.width * 4) as usize + 1;
+    let mut scanline_start_idx = 0;
+    let bpp = bytes_per_pixel(ihdr)? as usize;
+    let scanline_len = ihdr.width as usize * bpp;
+
+    for (scanline_idx, scanline) in decompressed_data.chunks(scanline_len + 1).enumerate() {
+        let filter_algorithm = FilterAlgorithm::try_from(scanline[0])?;
+        println!("Filter algorithm: {:?}", filter_algorithm);
+        match filter_algorithm {
+            Sub => {
+                for (byte_idx, byte) in scanline[1..].iter().enumerate() {
+                    let image_idx = scanline_len * scanline_idx + byte_idx;
+                    let sub_image_byte = if image_idx < bpp { 0 } else { image[image_idx - bpp] };
+                    image[image_idx] = byte.wrapping_add(sub_image_byte);
+                }
+            },
+            Up => {
+                for (byte_idx, byte) in scanline[1..].iter().enumerate() {
+                    let image_idx = scanline_len * scanline_idx + byte_idx;
+                    let prior_idx = image_idx - scanline_len;
+                    let prior_byte = if image_idx < scanline_len { 0 } else { image[prior_idx] };
+                    image[image_idx] = byte.wrapping_add(prior_byte);
+                }
+            }
+            _ => {
+                let image_idx = scanline_len * scanline_idx;
+                image[image_idx..image_idx + scanline_len].as_mut().write(&scanline[1..]);
+            }
+        }
+    }
+
+    Ok(())
+}
+
+fn bytes_per_pixel(ihdr: &IHDR) -> Result<u32> {
+    match (&ihdr.color_type, &ihdr.bit_depth) {
+        (ColorType::Grayscale, BitDepth::Bits1) => Ok(1),
+        (ColorType::Grayscale, BitDepth::Bits2) => Ok(1),
+        (ColorType::Grayscale, BitDepth::Bits4) => Ok(1),
+        (ColorType::Grayscale, BitDepth::Bits8) => Ok(1),
+        (ColorType::Grayscale, BitDepth::Bits16) => Ok(2),
+        (ColorType::RGB, BitDepth::Bits8) => Ok(1),
+        (ColorType::RGB, BitDepth::Bits8) => Ok(2),
+        (ColorType::Palette, _) => bail!("Can't handle palette"),
+        (ColorType::GrayscaleAlpha, BitDepth::Bits8) => Ok(2),
+        (ColorType::GrayscaleAlpha, BitDepth::Bits16) => Ok(4),
+        (ColorType::RGBA, BitDepth::Bits8) => Ok(4),
+        (ColorType::RGBA, BitDepth::Bits16) => Ok(8),
+        (_, _) => bail!("Unknown combination of color type and bit_depth")
     }
 }
 
