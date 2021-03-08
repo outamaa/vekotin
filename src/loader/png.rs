@@ -336,19 +336,20 @@ fn apply_filters(ihdr: &IHDR, decompressed_data: &mut Vec<u8>, image: &mut Vec<u
     let bpp = bytes_per_pixel(ihdr)? as usize;
     let scanline_len = ihdr.width as usize * bpp;
 
-    for (scanline_idx, scanline) in decompressed_data.chunks(scanline_len + 1).enumerate() {
-        let filter_algorithm = FilterAlgorithm::try_from(scanline[0])?;
+    for (scanline_idx, filter_and_scanline) in decompressed_data.chunks(scanline_len + 1).enumerate() {
+        let filter_algorithm = FilterAlgorithm::try_from(filter_and_scanline[0])?;
+        let scanline = &filter_and_scanline[1..];
         println!("Filter algorithm: {:?}", filter_algorithm);
         match filter_algorithm {
             Sub => {
-                for (byte_idx, byte) in scanline[1..].iter().enumerate() {
+                for (byte_idx, byte) in scanline.iter().enumerate() {
                     let image_idx = scanline_len * scanline_idx + byte_idx;
                     let sub_image_byte = if image_idx < bpp { 0 } else { image[image_idx - bpp] };
                     image[image_idx] = byte.wrapping_add(sub_image_byte);
                 }
             },
             Up => {
-                for (byte_idx, byte) in scanline[1..].iter().enumerate() {
+                for (byte_idx, byte) in scanline.iter().enumerate() {
                     let image_idx = scanline_len * scanline_idx + byte_idx;
                     let prior_idx = image_idx - scanline_len;
                     let prior_byte = if image_idx < scanline_len { 0 } else { image[prior_idx] };
