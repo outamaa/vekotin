@@ -306,14 +306,26 @@ pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Image> {
     }
 
     println!("Data length: {}", compressed_data.len());
-    
-    let image_size: usize = (ihdr.width * ihdr.height * 4) as usize; // Assumes RGBA for now
-    let mut decompressed_data: Vec<u8> = Vec::with_capacity(image_size);
+
+    let mut decompressed_data: Vec<u8> = Vec::new();
     zlib::decompress(&compressed_data, &mut decompressed_data)?;
+
+    let image_size: usize = (ihdr.width * ihdr.height * 4) as usize; // Assumes RGBA for now
+    let mut image: Vec<u8> = Vec::with_capacity(image_size);
+
+    // Copy unfiltered data to `image`
+    // TODO no need to copy, but first implement filters
+    let mut scanline_start_idx = 1;
+    let scanline_len = (ihdr.width * 4) as usize;
+    while scanline_start_idx < decompressed_data.len() {
+        println!("{}", scanline_start_idx);
+        image.write(&decompressed_data[scanline_start_idx .. scanline_start_idx + scanline_len]);
+        scanline_start_idx += (ihdr.width * 4) as usize + 1;
+    }
 
     Ok(Image {
         width: ihdr.width,
         height: ihdr.height,
-        data: decompressed_data,
+        data: image,
     })
 }
