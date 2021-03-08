@@ -41,13 +41,13 @@ fn read_png_header<R: Read>(reader: &mut BufReader<R>) -> Result<()> {
     reader.read_exact(&mut b)?;
 
     if b[0] != 0x89
-    || b[1] != 0x50
-    || b[2] != 0x4E
-    || b[3] != 0x47
-    || b[4] != 0x0D
-    || b[5] != 0x0A
-    || b[6] != 0x1A
-    || b[7] != 0x0A
+        || b[1] != 0x50
+        || b[2] != 0x4E
+        || b[3] != 0x47
+        || b[4] != 0x0D
+        || b[5] != 0x0A
+        || b[6] != 0x1A
+        || b[7] != 0x0A
     {
         bail!("Not a PNG header: {:?}", b);
     }
@@ -88,7 +88,7 @@ fn read_chunck_type<R: Read>(reader: &mut BufReader<R>) -> Result<ChunkType> {
 }
 
 fn read_chunk_length_and_type<R: Read>(reader: &mut BufReader<R>) -> Result<(u32, ChunkType)> {
-    Ok( (read_u32(reader)?, read_chunck_type(reader)?))
+    Ok((read_u32(reader)?, read_chunck_type(reader)?))
 }
 
 
@@ -111,12 +111,12 @@ impl From<u8> for BitDepth {
         use BitDepth::*;
 
         match b {
-            1  => Bits1,
-            2  => Bits2,
-            4  => Bits4,
-            8  => Bits8,
+            1 => Bits1,
+            2 => Bits2,
+            4 => Bits4,
+            8 => Bits8,
             16 => Bits16,
-            _  => Invalid,
+            _ => Invalid,
         }
     }
 }
@@ -283,29 +283,10 @@ pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Image> {
     println!("{:?}", ihdr);
 
 
+    // Loop through the chunks, copying data to `compressed_data`
     let mut compressed_data: Vec<u8> = Vec::new();
-
-    // Loop through the chunks
-    loop {
-        let (chunk_length, chunk_type) = read_chunk_length_and_type(&mut reader)?;
-        match chunk_type {
-            ChunkType::IEND => break,
-            ChunkType::IDAT => {
-                // Read data chunk to `data`
-                let chunk_reader = reader.by_ref();
-                chunk_reader.take(chunk_length.into()).read_to_end(&mut compressed_data)?;
-            },
-            ChunkType::PLTE => bail!("Can't handle PNGs with palette yet!"),
-            ChunkType::IHDR => bail!("Encountered a second IHDR chunk"),
-            _ => {
-                println!("{:?}", chunk_type);
-                skip_bytes(&mut reader, chunk_length);
-            },
-        }
-        skip_crc(&mut reader)?;
+    while process_chunk(&mut reader, &mut compressed_data)? {
     }
-
-    println!("Data length: {}", compressed_data.len());
 
     let mut decompressed_data: Vec<u8> = Vec::new();
     zlib::decompress(&compressed_data, &mut decompressed_data)?;
@@ -313,19 +294,42 @@ pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Image> {
     let image_size: usize = (ihdr.width * ihdr.height * 4) as usize; // Assumes RGBA for now
     let mut image: Vec<u8> = Vec::with_capacity(image_size);
 
-    // Copy unfiltered data to `image`
-    // TODO no need to copy, but first implement filters
-    let mut scanline_start_idx = 1;
-    let scanline_len = (ihdr.width * 4) as usize;
-    while scanline_start_idx < decompressed_data.len() {
-        println!("{}", scanline_start_idx);
-        image.write(&decompressed_data[scanline_start_idx .. scanline_start_idx + scanline_len]);
-        scanline_start_idx += (ihdr.width * 4) as usize + 1;
-    }
+    apply_filters(&ihdr, &mut decompressed_data, &mut image);
 
     Ok(Image {
         width: ihdr.width,
         height: ihdr.height,
         data: image,
     })
+}
+
+fn apply_filters(ihdr: &IHDR, decompressed_data: &mut Vec<u8>, image: &mut Vec<u8>) {
+    // Copy unfiltered data to `image`
+    // TODO no need to copy, but first implement filters
+    let mut scanline_start_idx = 1;
+    let scanline_len = (ihdr.width * 4) as usize;
+    while scanline_start_idx < decompressed_data.len() {
+        image.write(&decompressed_data[scanline_start_idx..scanline_start_idx + scanline_len]);
+        scanline_start_idx += (ihdr.width * 4) as usize + 1;
+    }
+}
+
+fn process_chunk(mut reader: &mut BufReader<File>, mut compressed_data: &mut Vec<u8>) -> Result<bool> {
+    let (chunk_length, chunk_type) = read_chunk_length_and_type(&mut reader)?;
+    match chunk_type {
+        ChunkType::IEND => return Ok(false),
+        ChunkType::IDAT => {
+            // Read data chunk to `data`
+            let chunk_reader = reader.by_ref();
+            chunk_reader.take(chunk_length.into()).read_to_end(&mut compressed_data)?;
+        }
+        ChunkType::PLTE => bail!("Can't handle PNGs with palette yet!"),
+        ChunkType::IHDR => bail!("Encountered a second IHDR chunk"),
+        _ => {
+            println!("{:?}", chunk_type);
+            skip_bytes(&mut reader, chunk_length);
+        }
+    }
+    skip_crc(&mut reader)?;
+    Ok(true)
 }
