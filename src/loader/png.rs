@@ -330,9 +330,9 @@ impl TryFrom<u8> for FilterAlgorithm {
 }
 
 fn apply_filters(ihdr: &IHDR, decompressed_data: &mut Vec<u8>, image: &mut Vec<u8>) -> Result<()> {
+    use FilterAlgorithm::*;
     // Copy unfiltered data to `image`
     // TODO no need to copy, but first implement filters
-    let mut scanline_start_idx = 0;
     let bpp = bytes_per_pixel(ihdr)? as usize;
     let scanline_len = ihdr.width as usize * bpp;
 
@@ -374,7 +374,7 @@ fn bytes_per_pixel(ihdr: &IHDR) -> Result<u32> {
         (ColorType::Grayscale, BitDepth::Bits8) => Ok(1),
         (ColorType::Grayscale, BitDepth::Bits16) => Ok(2),
         (ColorType::RGB, BitDepth::Bits8) => Ok(1),
-        (ColorType::RGB, BitDepth::Bits8) => Ok(2),
+        (ColorType::RGB, BitDepth::Bits16) => Ok(2),
         (ColorType::Palette, _) => bail!("Can't handle palette"),
         (ColorType::GrayscaleAlpha, BitDepth::Bits8) => Ok(2),
         (ColorType::GrayscaleAlpha, BitDepth::Bits16) => Ok(4),
