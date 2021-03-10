@@ -343,17 +343,39 @@ fn apply_filters(ihdr: &IHDR, decompressed_data: &mut Vec<u8>, image: &mut Vec<u
         match filter_algorithm {
             Sub => {
                 for (byte_idx, byte) in scanline.iter().enumerate() {
+                    let left = raw(image, scanline_len, scanline_idx, byte_idx as i32  - bpp as i32);
+
                     let image_idx = scanline_len * scanline_idx + byte_idx;
-                    let sub_image_byte = if image_idx < bpp { 0 } else { image[image_idx - bpp] };
-                    image[image_idx] = byte.wrapping_add(sub_image_byte);
+                    image[image_idx] = byte.wrapping_add(left);
                 }
             },
             Up => {
                 for (byte_idx, byte) in scanline.iter().enumerate() {
+                    let prior_byte = prior(image, scanline_len, scanline_idx, byte_idx as i32);
+
                     let image_idx = scanline_len * scanline_idx + byte_idx;
-                    let prior_idx = image_idx - scanline_len;
-                    let prior_byte = if image_idx < scanline_len { 0 } else { image[prior_idx] };
                     image[image_idx] = byte.wrapping_add(prior_byte);
+                }
+            }
+            Average => {
+                for (byte_idx, byte) in scanline.iter().enumerate() {
+                    let raw_byte: u32 = raw(image, scanline_len, scanline_idx, byte_idx as i32  - bpp as i32) as u32;
+                    let prior_byte: u32 = prior(image, scanline_len, scanline_idx, byte_idx as i32) as u32;
+                    let avg_byte: u8 = ((raw_byte +prior_byte) / 2) as u8;
+
+                    let image_idx = scanline_len * scanline_idx + byte_idx;
+                    image[image_idx] = byte.wrapping_add(avg_byte);
+                }
+            },
+            Paeth => {
+                for (byte_idx, byte) in scanline.iter().enumerate() {
+                    let left = raw(image, scanline_len, scanline_idx, byte_idx as i32  - bpp as i32);
+                    let above = prior(image, scanline_len, scanline_idx, byte_idx as i32);
+                    let above_left = prior(image, scanline_len, scanline_idx, byte_idx as i32 - bpp as i32);
+                    let paeth = paeth_predictor(left, above, above_left);
+
+                    let image_idx = scanline_len * scanline_idx + byte_idx;
+                    image[image_idx] = byte.wrapping_add(paeth);
                 }
             }
             _ => {
@@ -366,6 +388,31 @@ fn apply_filters(ihdr: &IHDR, decompressed_data: &mut Vec<u8>, image: &mut Vec<u
     Ok(())
 }
 
+// raw, unfiltered byte from the prior scanline
+fn prior(image: &mut Vec<u8>, scanline_len: usize, scanline_idx: usize, byte_idx: i32) -> u8 {
+    if scanline_idx == 0 || byte_idx < 0 { 0 } else { image[scanline_len * (scanline_idx - 1) + byte_idx as usize] }
+}
+
+fn raw(image: &mut Vec<u8>, scanline_len: usize, scanline_idx: usize, byte_idx: i32) -> u8 {
+    assert!(byte_idx < scanline_len as i32, "{}, {}", byte_idx, scanline_len);
+    if byte_idx < 0 { 0 } else { image[scanline_len * scanline_idx + byte_idx as usize] }
+}
+
+fn paeth_predictor(a: u8, b: u8, c: u8) -> u8 {
+    let p = a as i32 + b as i32 - c as i32;
+    let pa = (p - a as i32).abs();
+    let pb = (p - b as i32).abs();
+    let pc = (p - c as i32).abs();
+
+    if pa <= pb && pa <= pc {
+        a
+    } else if pb <= pc {
+        b
+    } else {
+        c
+    }
+}
+
 fn bytes_per_pixel(ihdr: &IHDR) -> Result<u32> {
     match (&ihdr.color_type, &ihdr.bit_depth) {
         (ColorType::Grayscale, BitDepth::Bits1) => Ok(1),
@@ -375,12 +422,12 @@ fn bytes_per_pixel(ihdr: &IHDR) -> Result<u32> {
         (ColorType::Grayscale, BitDepth::Bits16) => Ok(2),
         (ColorType::RGB, BitDepth::Bits8) => Ok(1),
         (ColorType::RGB, BitDepth::Bits16) => Ok(2),
-        (ColorType::Palette, _) => bail!("Can't handle palette"),
+        (ColorType::Palette, _) => bail!("Can't handle palettes yet"),
         (ColorType::GrayscaleAlpha, BitDepth::Bits8) => Ok(2),
         (ColorType::GrayscaleAlpha, BitDepth::Bits16) => Ok(4),
         (ColorType::RGBA, BitDepth::Bits8) => Ok(4),
         (ColorType::RGBA, BitDepth::Bits16) => Ok(8),
-        (_, _) => bail!("Unknown combination of color type and bit_depth")
+        _ => bail!("Unknown combination of color type and bit_depth: {:?}, {:?}", &ihdr.color_type, &ihdr.bit_depth)
     }
 }
 
