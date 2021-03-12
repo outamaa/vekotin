@@ -3,7 +3,7 @@ use std::io::BufReader;
 use std::convert::TryFrom;
 use std::fs::File;
 use std::path::Path;
-use std::str;
+use std::{str, cmp};
 use anyhow::{Result, bail, anyhow};
 use crate::compression::zlib;
 //
@@ -29,8 +29,15 @@ fn skip_crc<R: Read>(reader: &mut BufReader<R>) -> Result<()> {
 }
 
 // For development
-fn skip_bytes<R: Read>(reader: &mut BufReader<R>, n: u32) {
-    reader.consume(n as usize);
+fn skip_bytes<R: Read>(reader: &mut BufReader<R>, n: u32) -> Result<()>{
+    let mut n = n;
+    while n > 0 {
+        let buffer = reader.fill_buf()?;
+        let read_bytes = cmp::min(n as usize, buffer.len());
+        reader.consume(cmp::min(n as usize, read_bytes));
+        n -= read_bytes as u32;
+    }
+    Ok(())
 }
 
 //
@@ -285,7 +292,7 @@ pub struct Png {
 pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Png> {
     let f = File::open(path)?;
     // TODO for some reason reading chunk type fails if capacity is a bit below this, investigate
-    let mut reader = BufReader::with_capacity(25 * 1024, f);
+    let mut reader = BufReader::new(f);
 
     // PNG header
     read_png_header(&mut reader)?;

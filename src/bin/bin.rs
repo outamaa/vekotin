@@ -3,9 +3,10 @@ use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::PixelFormatEnum;
 use sdl2::rect::Rect;
-use sdl2::render::{Canvas};
+use sdl2::render::{Canvas, BlendMode};
 use sdl2::video::Window;
 use vekotin::loader::png;
+use sdl2::render::BlendMode::Blend;
 
 pub struct Game {
     event_pump: sdl2::EventPump,
@@ -43,6 +44,7 @@ impl Game {
         let px_fmt = pixel_format(&img)?;
         println!("{:?}", px_fmt);
         let mut texture = texture_creator.create_texture_streaming(px_fmt, img.width, img.height)?;
+        texture.set_blend_mode(BlendMode::Blend);
         texture.update(
             None,
             &img.data,
