@@ -1,27 +1,36 @@
-use anyhow::Result;
+use anyhow::{Result, bail};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use sdl2::video::GLProfile;
 use sdl2::pixels::PixelFormatEnum;
-use sdl2::surface::Surface;
 use sdl2::rect::Rect;
-use sdl2::render::{Canvas, Texture};
+use sdl2::render::{Canvas};
 use sdl2::video::Window;
-use vekotin::*;
 use vekotin::loader::png;
 
 pub struct Game {
     event_pump: sdl2::EventPump,
-    canvas: Canvas<Window>,
+    _canvas: Canvas<Window>,
+}
+
+fn pixel_format(image: &png::Png) -> Result<PixelFormatEnum>{
+    use png::ColorType::*;
+    use png::BitDepth::*;
+    match (&image.bit_depth, &image.color_type) {
+        (Bits8, RGB) => Ok(PixelFormatEnum::RGB24),
+        (Bits8, RGBA) => Ok(PixelFormatEnum::RGBA32),
+        (bpp, ct) => bail!("Can't handle these: ({:?}, {:?}", bpp, ct),
+    }
 }
 
 impl Game {
     pub fn new() -> Result<Self> {
         let sdl_context = sdl2::init().expect("failed to init SDL");
         let video_subsystem = sdl_context.video().expect("failed to get video context");
-        
+
+        let img = png::load_from_file("assets/PNG_Test.png")?;
+        println!("{}", img.bytes_per_pixel);
         // We create a window.
-        let window = video_subsystem.window("sdl2 demo", 800, 600)
+        let window = video_subsystem.window("sdl2 demo", img.width, img.height)
             .build()
             .expect("failed to build window");
         
@@ -30,14 +39,14 @@ impl Game {
             .build()
             .expect("failed to build window's canvas");
         let texture_creator = canvas.texture_creator();
-        
-        let img = png::load_from_file("assets/test.png")?;
 
-        let mut texture = texture_creator.create_texture_streaming(PixelFormatEnum::RGBA32, img.width, img.height)?;
+        let px_fmt = pixel_format(&img)?;
+        println!("{:?}", px_fmt);
+        let mut texture = texture_creator.create_texture_streaming(px_fmt, img.width, img.height)?;
         texture.update(
-            Rect::new(0, 0, img.width, img.height),
+            None,
             &img.data,
-            (4 * img.width) as usize,
+            (img.bytes_per_pixel * img.width) as usize,
         )?;
 
         canvas.copy(&texture, None, None).unwrap();
@@ -45,7 +54,7 @@ impl Game {
 
         let event_pump = sdl_context.event_pump().unwrap();
         
-        Ok(Self { event_pump, canvas })
+        Ok(Self { event_pump, _canvas: canvas })
     }  
 }
 

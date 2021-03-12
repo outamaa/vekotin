@@ -69,7 +69,7 @@ enum ChunkType {
     Ancillary(String),
 }
 
-fn read_chunck_type<R: Read>(reader: &mut BufReader<R>) -> Result<ChunkType> {
+fn read_chunk_type<R: Read>(reader: &mut BufReader<R>) -> Result<ChunkType> {
     use ChunkType::*;
     let mut b = [0; 4];
     reader.read_exact(&mut b)?;
@@ -89,7 +89,7 @@ fn read_chunck_type<R: Read>(reader: &mut BufReader<R>) -> Result<ChunkType> {
 }
 
 fn read_chunk_length_and_type<R: Read>(reader: &mut BufReader<R>) -> Result<(u32, ChunkType)> {
-    Ok((read_u32(reader)?, read_chunck_type(reader)?))
+    Ok((read_u32(reader)?, read_chunk_type(reader)?))
 }
 
 
@@ -97,8 +97,8 @@ fn read_chunk_length_and_type<R: Read>(reader: &mut BufReader<R>) -> Result<(u32
 // IHDR
 //
 
-#[derive(PartialEq, Debug)]
-enum BitDepth {
+#[derive(PartialEq, Debug, Copy, Clone)]
+pub enum BitDepth {
     Bits1,
     Bits2,
     Bits4,
@@ -122,8 +122,8 @@ impl From<u8> for BitDepth {
     }
 }
 
-#[derive(PartialEq, Debug)]
-enum ColorType {
+#[derive(PartialEq, Debug, Copy, Clone)]
+pub enum ColorType {
     Grayscale,
     RGB,
     Palette,
@@ -206,6 +206,7 @@ struct IHDR {
     height: u32,
     bit_depth: BitDepth,
     color_type: ColorType,
+    bytes_per_pixel: u32,
     compression_method: CompressionMethod,
     filter_method: FilterMethod,
     interlace_method: InterlaceMethod,
@@ -213,7 +214,7 @@ struct IHDR {
 
 fn read_ihdr<R: Read>(reader: &mut BufReader<R>) -> Result<IHDR> {
     let chunk_length = read_u32(reader)?;
-    let chunk_type = read_chunck_type(reader)?;
+    let chunk_type = read_chunk_type(reader)?;
 
     if chunk_type != ChunkType::IHDR {
         bail!("First chunk must be IHDR, was {:?}", chunk_type);
@@ -227,6 +228,7 @@ fn read_ihdr<R: Read>(reader: &mut BufReader<R>) -> Result<IHDR> {
     let height = read_u32(reader)?;
     let bit_depth = BitDepth::from(read_u8(reader)?);
     let color_type = ColorType::from(read_u8(reader)?);
+    let bytes_per_pixel = bytes_per_pixel(&color_type, &bit_depth)?;
 
     let compression_method_byte = read_u8(reader)?;
     let compression_method = CompressionMethod::from(compression_method_byte);
@@ -246,6 +248,9 @@ fn read_ihdr<R: Read>(reader: &mut BufReader<R>) -> Result<IHDR> {
     if interlace_method == InterlaceMethod::Unknown {
         bail!("Unknown interlace method {}", interlace_method_byte);
     }
+    if interlace_method != InterlaceMethod::None {
+        bail!("Can't handle interlacing yet");
+    }
 
     skip_crc(reader)?;
 
@@ -254,6 +259,7 @@ fn read_ihdr<R: Read>(reader: &mut BufReader<R>) -> Result<IHDR> {
         height,
         bit_depth,
         color_type,
+        bytes_per_pixel,
         compression_method,
         filter_method,
         interlace_method,
@@ -266,15 +272,20 @@ fn read_ihdr<R: Read>(reader: &mut BufReader<R>) -> Result<IHDR> {
 //
 // Public interface
 //
-pub struct Image {
+#[derive(PartialEq, Debug)]
+pub struct Png {
     pub width: u32,
     pub height: u32,
+    pub bit_depth: BitDepth,
+    pub color_type: ColorType,
+    pub bytes_per_pixel: u32,
     pub data: Vec<u8>,
 }
 
-pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Image> {
+pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Png> {
     let f = File::open(path)?;
-    let mut reader = BufReader::new(f);
+    // TODO for some reason reading chunk type fails if capacity is a bit below this, investigate
+    let mut reader = BufReader::with_capacity(25 * 1024, f);
 
     // PNG header
     read_png_header(&mut reader)?;
@@ -291,14 +302,17 @@ pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Image> {
     let mut decompressed_data: Vec<u8> = Vec::new();
     zlib::decompress(&compressed_data, &mut decompressed_data)?;
 
-    let image_size: usize = (ihdr.width * ihdr.height * 4) as usize; // Assumes RGBA for now
+    let image_size: usize = (ihdr.width * ihdr.height * ihdr.bytes_per_pixel) as usize;
     let mut image: Vec<u8> = vec![0; image_size];
 
-    apply_filters(&ihdr, &mut decompressed_data, &mut image);
+    apply_filters(&ihdr, &mut decompressed_data, &mut image)?;
 
-    Ok(Image {
+    Ok(Png {
         width: ihdr.width,
         height: ihdr.height,
+        bit_depth: ihdr.bit_depth,
+        color_type: ihdr.color_type,
+        bytes_per_pixel: ihdr.bytes_per_pixel,
         data: image,
     })
 }
@@ -331,15 +345,13 @@ impl TryFrom<u8> for FilterAlgorithm {
 
 fn apply_filters(ihdr: &IHDR, decompressed_data: &mut Vec<u8>, image: &mut Vec<u8>) -> Result<()> {
     use FilterAlgorithm::*;
-    // Copy unfiltered data to `image`
-    // TODO no need to copy, but first implement filters
-    let bpp = bytes_per_pixel(ihdr)? as usize;
-    let scanline_len = ihdr.width as usize * bpp;
+    let bpp = ihdr.bytes_per_pixel;
+    let scanline_len = ihdr.width as usize * bpp as usize;
 
     for (scanline_idx, filter_and_scanline) in decompressed_data.chunks(scanline_len + 1).enumerate() {
         let filter_algorithm = FilterAlgorithm::try_from(filter_and_scanline[0])?;
         let scanline = &filter_and_scanline[1..];
-        println!("Filter algorithm: {:?}", filter_algorithm);
+
         match filter_algorithm {
             Sub => {
                 for (byte_idx, byte) in scanline.iter().enumerate() {
@@ -380,7 +392,7 @@ fn apply_filters(ihdr: &IHDR, decompressed_data: &mut Vec<u8>, image: &mut Vec<u
             }
             _ => {
                 let image_idx = scanline_len * scanline_idx;
-                image[image_idx..image_idx + scanline_len].as_mut().write(&scanline[1..]);
+                image[image_idx..image_idx + scanline_len].as_mut().write(&scanline[1..])?;
             }
         }
     }
@@ -413,21 +425,21 @@ fn paeth_predictor(a: u8, b: u8, c: u8) -> u8 {
     }
 }
 
-fn bytes_per_pixel(ihdr: &IHDR) -> Result<u32> {
-    match (&ihdr.color_type, &ihdr.bit_depth) {
+fn bytes_per_pixel(color_type: &ColorType, bit_depth: &BitDepth) -> Result<u32> {
+    match (color_type, bit_depth) {
         (ColorType::Grayscale, BitDepth::Bits1) => Ok(1),
         (ColorType::Grayscale, BitDepth::Bits2) => Ok(1),
         (ColorType::Grayscale, BitDepth::Bits4) => Ok(1),
         (ColorType::Grayscale, BitDepth::Bits8) => Ok(1),
         (ColorType::Grayscale, BitDepth::Bits16) => Ok(2),
-        (ColorType::RGB, BitDepth::Bits8) => Ok(1),
-        (ColorType::RGB, BitDepth::Bits16) => Ok(2),
+        (ColorType::RGB, BitDepth::Bits8) => Ok(3),
+        (ColorType::RGB, BitDepth::Bits16) => Ok(6),
         (ColorType::Palette, _) => bail!("Can't handle palettes yet"),
         (ColorType::GrayscaleAlpha, BitDepth::Bits8) => Ok(2),
         (ColorType::GrayscaleAlpha, BitDepth::Bits16) => Ok(4),
         (ColorType::RGBA, BitDepth::Bits8) => Ok(4),
         (ColorType::RGBA, BitDepth::Bits16) => Ok(8),
-        _ => bail!("Unknown combination of color type and bit_depth: {:?}, {:?}", &ihdr.color_type, &ihdr.bit_depth)
+        _ => bail!("Unknown combination of color type and bit_depth: {:?}, {:?}", color_type, bit_depth)
     }
 }
 
@@ -443,7 +455,6 @@ fn process_chunk(mut reader: &mut BufReader<File>, mut compressed_data: &mut Vec
         ChunkType::PLTE => bail!("Can't handle PNGs with palette yet!"),
         ChunkType::IHDR => bail!("Encountered a second IHDR chunk"),
         _ => {
-            println!("{:?}", chunk_type);
             skip_bytes(&mut reader, chunk_length);
         }
     }
