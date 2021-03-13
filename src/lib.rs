@@ -5,3 +5,4 @@ extern crate gl;
 pub mod compression;
 pub mod loader;
 pub mod fiddling;
+pub mod math;
