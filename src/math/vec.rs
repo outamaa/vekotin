@@ -5,99 +5,11 @@ use std::ops::{
 use std::slice::Iter;
 
 // General note: Use Copy, pass by value, trust the compiler to optimize. :)
+// Iterators used heavily to help with copy paste / macrology for dimensions other than 3
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vec3D {
     components: [f32; 3],
-}
-
-pub struct Vec3DIterator<'a> {
-    iter: Copied<Iter<'a, f32>>,
-}
-
-impl<'a> IntoIterator for &'a Vec3D {
-    type Item = f32;
-    type IntoIter = Vec3DIterator<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        Vec3DIterator {
-            iter: self.components.iter().copied(),
-        }
-    }
-}
-
-impl<'a> Iterator for Vec3DIterator<'a> {
-    type Item = f32;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
-    }
-}
-
-pub struct Vec3DMutIterator<'a> {
-    iter: ::std::slice::IterMut<'a, f32>,
-}
-
-impl<'a> IntoIterator for &'a mut Vec3D {
-    type Item = &'a mut f32;
-    type IntoIter = Vec3DMutIterator<'a>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        Vec3DMutIterator {
-            iter: self.components.iter_mut(),
-        }
-    }
-}
-
-impl<'a> Iterator for Vec3DMutIterator<'a> {
-    type Item = &'a mut f32;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.iter.next()
-    }
-}
-
-impl FromIterator<f32> for Vec3D {
-    fn from_iter<T: IntoIterator<Item = f32>>(iter: T) -> Self {
-        let mut v_iter = iter.into_iter().take(3);
-        let x = v_iter.next().unwrap_or(0.0);
-        let y = v_iter.next().unwrap_or(0.0);
-        let z = v_iter.next().unwrap_or(0.0);
-        Vec3D {
-            components: [x, y, z],
-        }
-    }
-}
-
-impl Index<usize> for Vec3D {
-    type Output = f32;
-
-    /// # Examples
-    /// ```rust
-    /// use vekotin::math::vec::*;
-    ///
-    /// let v = Vec3D::new(1.0, 2.0, 3.0);
-    /// assert_eq!(v[0], 1.0);
-    /// assert_eq!(v[1], 2.0);
-    /// assert_eq!(v[2], 3.0);
-    /// ```
-    fn index(&self, index: usize) -> &Self::Output {
-        &self.components[index]
-    }
-}
-
-impl IndexMut<usize> for Vec3D {
-    /// # Examples
-    /// ```rust
-    /// use vekotin::math::vec::*;
-    ///
-    /// let mut v = Vec3D::new(1.0, 2.0, 3.0);
-    /// v[0] = 2.0;
-    /// assert_eq!(v[0], 2.0);
-    /// ```
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        &mut self.components[index]
-    }
 }
 
 impl Vec3D {
@@ -107,6 +19,7 @@ impl Vec3D {
         }
     }
 
+    /// Returns a 3D vector with all components set as zeroes
     pub fn zero() -> Vec3D {
         Vec3D::new(0.0, 0.0, 0.0)
     }
@@ -191,5 +104,153 @@ impl Vec3D {
             self.z() * other.x() - self.x() * other.z(),
             self.x() * other.y() - self.y() * other.x(),
         )
+    }
+}
+
+//
+// Arithmetic
+//
+
+impl Add for Vec3D {
+    type Output = Vec3D;
+
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vekotin::math::vec::*;
+    ///
+    /// let zero = Vec3D::zero();
+    /// let i = Vec3D::new(1.0, 0.0, 0.0);
+    /// let j = Vec3D::new(0.0, 1.0, 0.0);
+    /// let k = Vec3D::new(0.0, 0.0, 1.0);
+    ///
+    /// assert_eq!(zero + i, i);
+    /// assert_eq!(i + zero, i);
+    /// assert_eq!(i + j, j + i);
+    /// assert_eq!(i + j + k, k + j + i);
+    /// ```
+    fn add(self, rhs: Self) -> Self::Output {
+        self.iter().zip(rhs.iter()).map(|(a, b)| a + b).collect()
+    }
+}
+
+impl AddAssign for Vec3D {
+    fn add_assign(&mut self, rhs: Self) {
+        for (i, c) in self.iter_mut().enumerate() {
+            *c += rhs[i];
+        }
+    }
+}
+
+impl Sub for Vec3D {
+    type Output = Vec3D;
+
+    fn sub(self, rhs: Self) -> Self::Output {
+        self.iter().zip(rhs.iter()).map(|(a, b)| a - b).collect()
+    }
+}
+
+impl SubAssign for Vec3D {
+    fn sub_assign(&mut self, rhs: Self) {
+        for (i, c) in self.iter_mut().enumerate() {
+            *c -= rhs[i];
+        }
+    }
+}
+
+//
+// Iterators
+//
+
+pub struct Vec3DIterator<'a> {
+    iter: Copied<Iter<'a, f32>>,
+}
+
+impl<'a> IntoIterator for &'a Vec3D {
+    type Item = f32;
+    type IntoIter = Vec3DIterator<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Vec3DIterator {
+            iter: self.components.iter().copied(),
+        }
+    }
+}
+
+impl<'a> Iterator for Vec3DIterator<'a> {
+    type Item = f32;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+pub struct Vec3DMutIterator<'a> {
+    iter: ::std::slice::IterMut<'a, f32>,
+}
+
+impl<'a> IntoIterator for &'a mut Vec3D {
+    type Item = &'a mut f32;
+    type IntoIter = Vec3DMutIterator<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        Vec3DMutIterator {
+            iter: self.components.iter_mut(),
+        }
+    }
+}
+
+impl<'a> Iterator for Vec3DMutIterator<'a> {
+    type Item = &'a mut f32;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.iter.next()
+    }
+}
+
+impl FromIterator<f32> for Vec3D {
+    fn from_iter<T: IntoIterator<Item = f32>>(iter: T) -> Self {
+        let mut v_iter = iter.into_iter().take(3);
+        let x = v_iter.next().unwrap_or(0.0);
+        let y = v_iter.next().unwrap_or(0.0);
+        let z = v_iter.next().unwrap_or(0.0);
+        Vec3D {
+            components: [x, y, z],
+        }
+    }
+}
+
+//
+// Indexing
+//
+
+impl Index<usize> for Vec3D {
+    type Output = f32;
+
+    /// # Examples
+    /// ```rust
+    /// use vekotin::math::vec::*;
+    ///
+    /// let v = Vec3D::new(1.0, 2.0, 3.0);
+    /// assert_eq!(v[0], 1.0);
+    /// assert_eq!(v[1], 2.0);
+    /// assert_eq!(v[2], 3.0);
+    /// ```
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.components[index]
+    }
+}
+
+impl IndexMut<usize> for Vec3D {
+    /// # Examples
+    /// ```rust
+    /// use vekotin::math::vec::*;
+    ///
+    /// let mut v = Vec3D::new(1.0, 2.0, 3.0);
+    /// v[0] = 2.0;
+    /// assert_eq!(v[0], 2.0);
+    /// ```
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.components[index]
     }
 }
