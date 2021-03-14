@@ -240,6 +240,23 @@ impl Div<f32> for Vec3D {
     }
 }
 
+impl Div<Vec3D> for f32 {
+    type Output = Vec3D;
+
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vekotin::math::vec::*;
+    ///
+    /// let v = Vec3D::new(1.0, 2.0, 3.0);
+    ///
+    /// assert_eq!(6.0 / v, Vec3D::new(6.0, 3.0, 2.0));
+    /// ```
+    fn div(self, rhs: Vec3D) -> Self::Output {
+        rhs.iter().map(|a| self / a).collect()
+    }
+}
+
 //
 // Iterators
 //
