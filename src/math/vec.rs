@@ -145,6 +145,17 @@ impl AddAssign for Vec3D {
 impl Sub for Vec3D {
     type Output = Vec3D;
 
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vekotin::math::vec::*;
+    ///
+    /// let zero = Vec3D::zero();
+    /// let i = Vec3D::new(1.0, 0.0, 0.0);
+    ///
+    /// assert_eq!(i - zero, i);
+    /// assert_eq!(i - i , zero);
+    /// ```
     fn sub(self, rhs: Self) -> Self::Output {
         self.iter().zip(rhs.iter()).map(|(a, b)| a - b).collect()
     }
@@ -155,6 +166,77 @@ impl SubAssign for Vec3D {
         for (i, c) in self.iter_mut().enumerate() {
             *c -= rhs[i];
         }
+    }
+}
+
+impl Neg for Vec3D {
+    type Output = Vec3D;
+
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vekotin::math::vec::*;
+    ///
+    /// let zero = Vec3D::zero();
+    /// let i = Vec3D::new(1.0, 0.0, 0.0);
+    ///
+    /// assert_eq!(-zero, zero);
+    /// assert_eq!(-i, Vec3D::new(-1.0, 0.0, 0.0));
+    /// ```
+    fn neg(self) -> Self::Output {
+        self.iter().map(|a| -a).collect()
+    }
+}
+
+impl Mul<f32> for Vec3D {
+    type Output = Vec3D;
+
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vekotin::math::vec::*;
+    ///
+    /// let v = Vec3D::new(1.0, 2.0, 3.0);
+    ///
+    /// assert_eq!(v * 2.0, Vec3D::new(2.0, 4.0, 6.0));
+    /// ```
+    fn mul(self, rhs: f32) -> Self::Output {
+        self.iter().map(|a| rhs * a).collect()
+    }
+}
+
+impl Mul<Vec3D> for f32 {
+    type Output = Vec3D;
+
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vekotin::math::vec::*;
+    ///
+    /// let v = Vec3D::new(1.0, 2.0, 3.0);
+    ///
+    /// assert_eq!(2.0 * v, Vec3D::new(2.0, 4.0, 6.0));
+    /// ```
+    fn mul(self, rhs: Vec3D) -> Self::Output {
+        rhs * self
+    }
+}
+
+impl Div<f32> for Vec3D {
+    type Output = Vec3D;
+
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vekotin::math::vec::*;
+    ///
+    /// let v = Vec3D::new(1.0, 2.0, 3.0);
+    ///
+    /// assert_eq!(v / 2.0, Vec3D::new(0.5, 1.0, 1.5));
+    /// ```
+    fn div(self, rhs: f32) -> Self::Output {
+        let inv_rhs = 1.0 / rhs;
+        self.iter().map(|a| a * inv_rhs).collect()
     }
 }
 
