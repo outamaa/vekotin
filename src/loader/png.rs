@@ -1,11 +1,11 @@
-use std::io::prelude::*;
-use std::io::BufReader;
+use crate::compression::zlib;
+use anyhow::{anyhow, bail, Result};
 use std::convert::TryFrom;
 use std::fs::File;
+use std::io::prelude::*;
+use std::io::BufReader;
 use std::path::Path;
-use std::{str, cmp};
-use anyhow::{Result, bail, anyhow};
-use crate::compression::zlib;
+use std::{cmp, str};
 //
 // Helpers
 //
@@ -29,7 +29,7 @@ fn skip_crc<R: Read>(reader: &mut BufReader<R>) -> Result<()> {
 }
 
 // For development
-fn skip_bytes<R: Read>(reader: &mut BufReader<R>, n: u32) -> Result<()>{
+fn skip_bytes<R: Read>(reader: &mut BufReader<R>, n: u32) -> Result<()> {
     let mut n = n;
     while n > 0 {
         let buffer = reader.fill_buf()?;
@@ -91,14 +91,12 @@ fn read_chunk_type<R: Read>(reader: &mut BufReader<R>) -> Result<ChunkType> {
         _ => Ancillary(chunk_type_str.to_string()),
     };
 
-
     Ok(chunk_type)
 }
 
 fn read_chunk_length_and_type<R: Read>(reader: &mut BufReader<R>) -> Result<(u32, ChunkType)> {
     Ok((read_u32(reader)?, read_chunk_type(reader)?))
 }
-
 
 //
 // IHDR
@@ -249,7 +247,6 @@ fn read_ihdr<R: Read>(reader: &mut BufReader<R>) -> Result<IHDR> {
         bail!("Unknown filter method {}", filter_method_byte);
     }
 
-
     let interlace_method_byte = read_u8(reader)?;
     let interlace_method = InterlaceMethod::from(interlace_method_byte);
     if interlace_method == InterlaceMethod::Unknown {
@@ -274,7 +271,6 @@ fn read_ihdr<R: Read>(reader: &mut BufReader<R>) -> Result<IHDR> {
 
     Ok(ihdr)
 }
-
 
 //
 // Public interface
@@ -301,7 +297,6 @@ pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Png> {
     let ihdr = read_ihdr(&mut reader)?;
     println!("{:?}", ihdr);
 
-
     // Loop through the chunks, copying data to `compressed_data`
     let mut compressed_data: Vec<u8> = Vec::new();
     while process_chunk(&mut reader, &mut compressed_data)? {}
@@ -323,7 +318,6 @@ pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Png> {
         data: image,
     })
 }
-
 
 #[derive(Debug, PartialEq)]
 enum FilterAlgorithm {
@@ -355,19 +349,26 @@ fn apply_filters(ihdr: &IHDR, decompressed_data: &mut Vec<u8>, image: &mut Vec<u
     let bpp = ihdr.bytes_per_pixel;
     let scanline_len = ihdr.width as usize * bpp as usize;
 
-    for (scanline_idx, filter_and_scanline) in decompressed_data.chunks(scanline_len + 1).enumerate() {
+    for (scanline_idx, filter_and_scanline) in
+        decompressed_data.chunks(scanline_len + 1).enumerate()
+    {
         let filter_algorithm = FilterAlgorithm::try_from(filter_and_scanline[0])?;
         let scanline = &filter_and_scanline[1..];
 
         match filter_algorithm {
             Sub => {
                 for (byte_idx, byte) in scanline.iter().enumerate() {
-                    let left = raw(image, scanline_len, scanline_idx, byte_idx as i32  - bpp as i32);
+                    let left = raw(
+                        image,
+                        scanline_len,
+                        scanline_idx,
+                        byte_idx as i32 - bpp as i32,
+                    );
 
                     let image_idx = scanline_len * scanline_idx + byte_idx;
                     image[image_idx] = byte.wrapping_add(left);
                 }
-            },
+            }
             Up => {
                 for (byte_idx, byte) in scanline.iter().enumerate() {
                     let prior_byte = prior(image, scanline_len, scanline_idx, byte_idx as i32);
@@ -378,19 +379,35 @@ fn apply_filters(ihdr: &IHDR, decompressed_data: &mut Vec<u8>, image: &mut Vec<u
             }
             Average => {
                 for (byte_idx, byte) in scanline.iter().enumerate() {
-                    let raw_byte: u32 = raw(image, scanline_len, scanline_idx, byte_idx as i32  - bpp as i32) as u32;
-                    let prior_byte: u32 = prior(image, scanline_len, scanline_idx, byte_idx as i32) as u32;
-                    let avg_byte: u8 = ((raw_byte +prior_byte) / 2) as u8;
+                    let raw_byte: u32 = raw(
+                        image,
+                        scanline_len,
+                        scanline_idx,
+                        byte_idx as i32 - bpp as i32,
+                    ) as u32;
+                    let prior_byte: u32 =
+                        prior(image, scanline_len, scanline_idx, byte_idx as i32) as u32;
+                    let avg_byte: u8 = ((raw_byte + prior_byte) / 2) as u8;
 
                     let image_idx = scanline_len * scanline_idx + byte_idx;
                     image[image_idx] = byte.wrapping_add(avg_byte);
                 }
-            },
+            }
             Paeth => {
                 for (byte_idx, byte) in scanline.iter().enumerate() {
-                    let left = raw(image, scanline_len, scanline_idx, byte_idx as i32  - bpp as i32);
+                    let left = raw(
+                        image,
+                        scanline_len,
+                        scanline_idx,
+                        byte_idx as i32 - bpp as i32,
+                    );
                     let above = prior(image, scanline_len, scanline_idx, byte_idx as i32);
-                    let above_left = prior(image, scanline_len, scanline_idx, byte_idx as i32 - bpp as i32);
+                    let above_left = prior(
+                        image,
+                        scanline_len,
+                        scanline_idx,
+                        byte_idx as i32 - bpp as i32,
+                    );
                     let paeth = paeth_predictor(left, above, above_left);
 
                     let image_idx = scanline_len * scanline_idx + byte_idx;
@@ -399,7 +416,9 @@ fn apply_filters(ihdr: &IHDR, decompressed_data: &mut Vec<u8>, image: &mut Vec<u
             }
             _ => {
                 let image_idx = scanline_len * scanline_idx;
-                image[image_idx..image_idx + scanline_len].as_mut().write(&scanline[1..])?;
+                image[image_idx..image_idx + scanline_len]
+                    .as_mut()
+                    .write(&scanline[1..])?;
             }
         }
     }
@@ -409,12 +428,25 @@ fn apply_filters(ihdr: &IHDR, decompressed_data: &mut Vec<u8>, image: &mut Vec<u
 
 // raw, unfiltered byte from the prior scanline
 fn prior(image: &mut Vec<u8>, scanline_len: usize, scanline_idx: usize, byte_idx: i32) -> u8 {
-    if scanline_idx == 0 || byte_idx < 0 { 0 } else { image[scanline_len * (scanline_idx - 1) + byte_idx as usize] }
+    if scanline_idx == 0 || byte_idx < 0 {
+        0
+    } else {
+        image[scanline_len * (scanline_idx - 1) + byte_idx as usize]
+    }
 }
 
 fn raw(image: &mut Vec<u8>, scanline_len: usize, scanline_idx: usize, byte_idx: i32) -> u8 {
-    assert!(byte_idx < scanline_len as i32, "{}, {}", byte_idx, scanline_len);
-    if byte_idx < 0 { 0 } else { image[scanline_len * scanline_idx + byte_idx as usize] }
+    assert!(
+        byte_idx < scanline_len as i32,
+        "{}, {}",
+        byte_idx,
+        scanline_len
+    );
+    if byte_idx < 0 {
+        0
+    } else {
+        image[scanline_len * scanline_idx + byte_idx as usize]
+    }
 }
 
 fn paeth_predictor(a: u8, b: u8, c: u8) -> u8 {
@@ -446,23 +478,32 @@ fn bytes_per_pixel(color_type: &ColorType, bit_depth: &BitDepth) -> Result<u32> 
         (ColorType::GrayscaleAlpha, BitDepth::Bits16) => Ok(4),
         (ColorType::RGBA, BitDepth::Bits8) => Ok(4),
         (ColorType::RGBA, BitDepth::Bits16) => Ok(8),
-        _ => bail!("Unknown combination of color type and bit_depth: {:?}, {:?}", color_type, bit_depth)
+        _ => bail!(
+            "Unknown combination of color type and bit_depth: {:?}, {:?}",
+            color_type,
+            bit_depth
+        ),
     }
 }
 
-fn process_chunk(mut reader: &mut BufReader<File>, mut compressed_data: &mut Vec<u8>) -> Result<bool> {
+fn process_chunk(
+    mut reader: &mut BufReader<File>,
+    mut compressed_data: &mut Vec<u8>,
+) -> Result<bool> {
     let (chunk_length, chunk_type) = read_chunk_length_and_type(&mut reader)?;
     match chunk_type {
         ChunkType::IEND => return Ok(false),
         ChunkType::IDAT => {
             // Read data chunk to `data`
             let chunk_reader = reader.by_ref();
-            chunk_reader.take(chunk_length.into()).read_to_end(&mut compressed_data)?;
+            chunk_reader
+                .take(chunk_length.into())
+                .read_to_end(&mut compressed_data)?;
         }
         ChunkType::PLTE => bail!("Can't handle PNGs with palette yet!"),
         ChunkType::IHDR => bail!("Encountered a second IHDR chunk"),
         _ => {
-            skip_bytes(&mut reader, chunk_length);
+            skip_bytes(&mut reader, chunk_length)?;
         }
     }
     skip_crc(&mut reader)?;
