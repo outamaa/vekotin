@@ -14,8 +14,8 @@ enum CompressionMethod {
 impl From<u8> for CompressionMethod {
     fn from(b: u8) -> Self {
         use CompressionMethod::*;
-        let cm = b & 0b00001111; // First 4 bytes
-        let cinfo = b >> 4;      // Last 4 bytes
+        let cm = b & 0b00001111; // First 4 bits
+        let cinfo = b >> 4;      // Last 4 bits
 
         if cm == 8 {
             // TODO: see http://optipng.sourceforge.net/pngtech/zlib-spec-correction.html

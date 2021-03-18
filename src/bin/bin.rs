@@ -26,7 +26,7 @@ impl Game {
         let sdl_context = sdl2::init().expect("failed to init SDL");
         let video_subsystem = sdl_context.video().expect("failed to get video context");
 
-        let img = png::load_from_file("assets/PNG_Test.png")?;
+        let img = png::load_from_file("assets/test.png")?;
         println!("{}", img.bytes_per_pixel);
         // We create a window.
         let window = video_subsystem
