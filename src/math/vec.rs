@@ -137,6 +137,14 @@ impl Vec3D {
         }
         m
     }
+
+    pub fn scalar_triple_product(a: Vec3D, b: Vec3D, c: Vec3D) -> f32 {
+        a.cross(b).dot(c)
+    }
+
+    pub fn vector_triple_product(a: Vec3D, b: Vec3D, c: Vec3D) -> Vec3D {
+        a.cross(b.cross(c))
+    }
 }
 
 //
