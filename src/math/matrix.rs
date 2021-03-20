@@ -11,6 +11,10 @@ pub struct Matrix3D {
 }
 
 impl Matrix3D {
+    //
+    // Constructors
+    //
+
     pub fn new(
         m00: f32,
         m01: f32,
@@ -47,6 +51,53 @@ impl Matrix3D {
         Matrix3D::new(1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0)
     }
 
+    pub fn rotation_x(theta: f32) -> Matrix3D {
+        Matrix3D::rotation(theta, Vec3D::new(1.0, 0.0, 0.0))
+    }
+
+    pub fn rotation_y(theta: f32) -> Matrix3D {
+        Matrix3D::rotation(theta, Vec3D::new(0.0, 1.0, 0.0))
+    }
+
+    pub fn rotation_z(theta: f32) -> Matrix3D {
+        Matrix3D::rotation(theta, Vec3D::new(0.0, 0.0, 1.0))
+    }
+
+    /// Given vector `a`, return a matrix that, when multiplied with vector `v` returns the same
+    /// result as `a.cross(v)`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vekotin::math::matrix::Matrix3D;
+    /// use vekotin::math::vec::Vec3D;
+    ///
+    /// let i = Vec3D::new(1.0, 0.0, 0.0);
+    /// let j = Vec3D::new(0.0, 1.0, 0.0);
+    /// let k = Vec3D::new(0.0, 0.0, 1.0);
+    ///
+    /// assert_eq!(i.cross(j), Matrix3D::cross(i) * j);
+    /// ```
+    pub fn cross(a: Vec3D) -> Matrix3D {
+        Matrix3D::new(0.0, -a.z(), a.y(), a.z(), 0.0, -a.z(), -a.y(), a.x(), 0.0)
+    }
+
+    pub fn rotation(theta: f32, a: Vec3D) -> Matrix3D {
+        let cos_theta = theta.cos();
+        let sin_theta = theta.sin();
+
+        // To rotate v about a by theta we want
+        // v' = cos_theta * v + (1 - cos_theta) * (v . a) * a + sin_theta * (a x v)
+        // Here we just squash what's done to v on the right hand side into a single matrix
+        cos_theta * Matrix3D::identity()
+            + (1.0 - cos_theta) * a.outer(a)
+            + sin_theta * Matrix3D::cross(a)
+    }
+
+    //
+    // Getters, setters, iterators
+    //
+
     pub fn get(&self, row: usize, col: usize) -> f32 {
         self.columns[col][row]
     }
@@ -70,6 +121,10 @@ impl Matrix3D {
     pub fn columns_mut(&mut self) -> Matrix3DMutIterator {
         self.into_iter()
     }
+
+    //
+    // Basic matrix operations
+    //
 
     /// # Examples
     ///
@@ -151,6 +206,12 @@ impl Matrix3D {
         }
     }
 
+    //
+    // Predicates
+    //
+
+    /// Checks if the matrix is orthogonal by checking if M^T * M == I
+    ///
     /// # Examples
     ///
     /// ```rust
@@ -250,6 +311,38 @@ impl Mul<Vec3D> for Matrix3D {
             .zip(rhs.iter())
             .map(|(col, c)| (*col) * c)
             .fold(Vec3D::zero(), |acc, v| acc + v)
+    }
+}
+
+impl Mul<f32> for &Matrix3D {
+    type Output = Matrix3D;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        self.columns().map(|col| (*col) * rhs).collect()
+    }
+}
+
+impl Mul<f32> for Matrix3D {
+    type Output = Matrix3D;
+
+    fn mul(self, rhs: f32) -> Self::Output {
+        self.columns().map(|col| (*col) * rhs).collect()
+    }
+}
+
+impl Mul<&Matrix3D> for f32 {
+    type Output = Matrix3D;
+
+    fn mul(self, rhs: &Matrix3D) -> Self::Output {
+        rhs * self
+    }
+}
+
+impl Mul<Matrix3D> for f32 {
+    type Output = Matrix3D;
+
+    fn mul(self, rhs: Matrix3D) -> Self::Output {
+        rhs * self
     }
 }
 
