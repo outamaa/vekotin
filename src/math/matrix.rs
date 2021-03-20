@@ -35,6 +35,10 @@ impl Matrix3D {
         Matrix3D { columns: [x, y, z] }
     }
 
+    pub fn from_rows(x: Vec3D, y: Vec3D, z: Vec3D) -> Matrix3D {
+        Matrix3D::new(x[0], x[1], x[2], y[0], y[1], y[2], z[0], z[1], z[2])
+    }
+
     pub fn zero() -> Matrix3D {
         Matrix3D::new(0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
     }
@@ -65,6 +69,105 @@ impl Matrix3D {
 
     pub fn columns_mut(&mut self) -> Matrix3DMutIterator {
         self.into_iter()
+    }
+
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vekotin::math::matrix::Matrix3D;
+    ///
+    /// let zero = Matrix3D::zero();
+    /// let id = Matrix3D::identity();
+    ///
+    /// assert_eq!(zero.transpose(), zero);
+    /// assert_eq!(id.transpose(), id);
+    /// assert_eq!(Matrix3D::new(1.0, 2.0, 3.0, 0.0, 2.0, 0.0, 0.0, 0.0, 2.0).transpose(),
+    ///            Matrix3D::new(1.0, 0.0, 0.0, 2.0, 2.0, 0.0, 3.0, 0.0, 2.0));
+    /// ```
+    pub fn transpose(&self) -> Matrix3D {
+        Matrix3D::new(
+            self.get(0, 0),
+            self.get(1, 0),
+            self.get(2, 0),
+            self.get(0, 1),
+            self.get(1, 1),
+            self.get(2, 1),
+            self.get(0, 2),
+            self.get(1, 2),
+            self.get(2, 2),
+        )
+    }
+
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vekotin::math::matrix::Matrix3D;
+    ///
+    /// let zero = Matrix3D::zero();
+    /// let id = Matrix3D::identity();
+    ///
+    /// assert_eq!(zero.determinant(), 0.0);
+    /// assert_eq!(id.determinant(), 1.0);
+    /// assert_eq!(Matrix3D::new(1.0, 2.0, 3.0, 2.0, 3.0, 4.0, -3.0, 4.0, 5.0).determinant(), 6.0);
+    /// ```
+    pub fn determinant(&self) -> f32 {
+        self.get(0, 0) * (self.get(1, 1) * self.get(2, 2) - self.get(2, 1) * self.get(1, 2))
+            + self.get(0, 1) * (self.get(1, 2) * self.get(2, 0) - self.get(1, 0) * self.get(2, 2))
+            + self.get(0, 2) * (self.get(1, 0) * self.get(2, 1) - self.get(1, 1) * self.get(2, 0))
+    }
+
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vekotin::math::matrix::Matrix3D;
+    ///
+    /// let zero = Matrix3D::zero();
+    /// let id = Matrix3D::identity();
+    /// let ortho = Matrix3D::new(0.0, 1.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+    ///
+    /// assert_eq!(zero.inverse(), None);
+    /// assert_eq!(id.inverse().unwrap(), id);
+    /// assert_eq!(ortho.inverse().unwrap(), ortho.transpose());
+    /// ```
+    pub fn inverse(&self) -> Option<Matrix3D> {
+        let a = self.col(0);
+        let b = self.col(1);
+        let c = self.col(2);
+
+        let r0 = b.cross(c);
+        let r1 = c.cross(a);
+        let r2 = a.cross(b);
+
+        let det = r2.dot(c);
+        if det == 0.0 {
+            None
+        } else {
+            let inv_det = 1.0 / det;
+            Some(Matrix3D::from_rows(
+                r0 * inv_det,
+                r1 * inv_det,
+                r2 * inv_det,
+            ))
+        }
+    }
+
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vekotin::math::matrix::Matrix3D;
+    ///
+    /// let zero = Matrix3D::zero();
+    /// let id = Matrix3D::identity();
+    /// let ortho = Matrix3D::new(0.0, 1.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+    /// let unortho = Matrix3D::new(0.0, 2.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
+    ///
+    /// assert!(!zero.is_orthogonal());
+    /// assert!(id.is_orthogonal());
+    /// assert!(ortho.is_orthogonal());
+    /// assert!(!unortho.is_orthogonal());
+    /// ```
+    pub fn is_orthogonal(&self) -> bool {
+        (*self) * self.transpose() == Matrix3D::identity()
     }
 }
 

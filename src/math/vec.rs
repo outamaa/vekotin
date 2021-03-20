@@ -1,3 +1,4 @@
+use crate::math::matrix::Matrix3D;
 use std::iter::{Copied, FromIterator};
 use std::ops::{
     Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign,
@@ -104,6 +105,37 @@ impl Vec3D {
             self.z() * other.x() - self.x() * other.z(),
             self.x() * other.y() - self.y() * other.x(),
         )
+    }
+
+    /// Returns the outer product of `self` and `other`.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vekotin::math::vec::*;
+    /// use vekotin::math::matrix::Matrix3D;
+    ///
+    /// let zero = Vec3D::zero();
+    /// let m_zero = Matrix3D::zero();
+    /// let i = Vec3D::new(1.0, 0.0, 0.0);
+    /// let j = Vec3D::new(0.0, 1.0, 0.0);
+    /// let k = Vec3D::new(0.0, 0.0, 1.0);
+    ///
+    /// assert_eq!(m_zero, zero.outer(zero));
+    /// assert_eq!(m_zero, zero.outer(i));
+    /// assert_eq!(j.outer(k),
+    ///            Matrix3D::new(0.0, 0.0, 0.0,
+    ///                          0.0, 0.0, 1.0,
+    ///                          0.0, 0.0, 0.0));
+    /// ```
+    pub fn outer(&self, other: Vec3D) -> Matrix3D {
+        let mut m = Matrix3D::zero();
+        for (i, a) in self.iter().enumerate() {
+            for (j, b) in other.iter().enumerate() {
+                m.set(i, j, a * b);
+            }
+        }
+        m
     }
 }
 
