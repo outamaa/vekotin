@@ -58,6 +58,10 @@ impl Vec3D {
         self.components[2]
     }
 
+    //
+    // Multiplication
+    //
+
     /// Returns the dot - or inner - product of `self` and `other`.
     ///
     /// # Examples
@@ -144,6 +148,18 @@ impl Vec3D {
 
     pub fn vector_triple_product(a: Vec3D, b: Vec3D, c: Vec3D) -> Vec3D {
         a.cross(b.cross(c))
+    }
+
+    pub fn length_squared(&self) -> f32 {
+        self.dot(*self)
+    }
+
+    pub fn length(&self) -> f32 {
+        self.length_squared().sqrt()
+    }
+
+    pub fn unit(&self) -> Vec3D {
+        *self / self.length()
     }
 }
 
