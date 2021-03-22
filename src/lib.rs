@@ -1,8 +1,9 @@
 extern crate anyhow;
-extern crate sdl2;
 extern crate gl;
+extern crate sdl2;
 
 pub mod compression;
-pub mod loader;
+pub mod digest;
 pub mod fiddling;
+pub mod loader;
 pub mod math;
