@@ -1,4 +1,5 @@
 use crate::compression::zlib;
+use crate::digest::CrcReader;
 use anyhow::{anyhow, bail, Result};
 use std::convert::TryFrom;
 use std::fs::File;
@@ -10,33 +11,31 @@ use std::{cmp, str};
 // Helpers
 //
 
-fn read_u32<R: Read>(reader: &mut BufReader<R>) -> Result<u32> {
+fn read_u32<R: Read>(reader: &mut R) -> Result<u32> {
     let mut b = [0; 4];
     reader.read_exact(&mut b)?;
     Ok(u32::from_be_bytes(b))
 }
 
-fn read_u8<R: Read>(reader: &mut BufReader<R>) -> Result<u8> {
+fn read_u8<R: Read>(reader: &mut R) -> Result<u8> {
     let mut b = [0; 1];
     reader.read_exact(&mut b)?;
     Ok(b[0])
 }
 
-// TODO actually check CRC
-fn skip_crc<R: Read>(reader: &mut BufReader<R>) -> Result<()> {
-    read_u32(reader)?;
+fn check_crc<R: Read>(reader: &mut CrcReader<R>) -> Result<()> {
+    let crc_from_reader = reader.digest();
+    let crc = read_u32(reader)?;
+    if crc != crc_from_reader {
+        bail!("Invalid CRC, {} != {}", crc, crc_from_reader);
+    }
     Ok(())
 }
 
 // For development
-fn skip_bytes<R: Read>(reader: &mut BufReader<R>, n: u32) -> Result<()> {
-    let mut n = n;
-    while n > 0 {
-        let buffer = reader.fill_buf()?;
-        let read_bytes = cmp::min(n as usize, buffer.len());
-        reader.consume(cmp::min(n as usize, read_bytes));
-        n -= read_bytes as u32;
-    }
+fn skip_bytes<R: Read>(reader: &mut R, n: u32) -> Result<()> {
+    let mut v = vec![0 as u8; n as usize];
+    reader.read_exact(&mut v)?;
     Ok(())
 }
 
@@ -44,7 +43,7 @@ fn skip_bytes<R: Read>(reader: &mut BufReader<R>, n: u32) -> Result<()> {
 // PNG file header
 //
 
-fn read_png_header<R: Read>(reader: &mut BufReader<R>) -> Result<()> {
+fn read_png_header<R: Read>(reader: &mut R) -> Result<()> {
     let mut b = [0; 8];
     reader.read_exact(&mut b)?;
 
@@ -76,7 +75,7 @@ enum ChunkType {
     Ancillary(String),
 }
 
-fn read_chunk_type<R: Read>(reader: &mut BufReader<R>) -> Result<ChunkType> {
+fn read_chunk_type<R: Read>(reader: &mut R) -> Result<ChunkType> {
     use ChunkType::*;
     let mut b = [0; 4];
     reader.read_exact(&mut b)?;
@@ -94,8 +93,10 @@ fn read_chunk_type<R: Read>(reader: &mut BufReader<R>) -> Result<ChunkType> {
     Ok(chunk_type)
 }
 
-fn read_chunk_length_and_type<R: Read>(reader: &mut BufReader<R>) -> Result<(u32, ChunkType)> {
-    Ok((read_u32(reader)?, read_chunk_type(reader)?))
+fn read_chunk_length_and_type<R: Read>(reader: &mut CrcReader<R>) -> Result<(u32, ChunkType)> {
+    let length = read_u32(reader)?;
+    reader.reset_crc();
+    Ok((length, read_chunk_type(reader)?))
 }
 
 //
@@ -217,9 +218,8 @@ struct IHDR {
     interlace_method: InterlaceMethod,
 }
 
-fn read_ihdr<R: Read>(reader: &mut BufReader<R>) -> Result<IHDR> {
-    let chunk_length = read_u32(reader)?;
-    let chunk_type = read_chunk_type(reader)?;
+fn read_ihdr<R: Read>(reader: &mut CrcReader<R>) -> Result<IHDR> {
+    let (chunk_length, chunk_type) = read_chunk_length_and_type(reader)?;
 
     if chunk_type != ChunkType::IHDR {
         bail!("First chunk must be IHDR, was {:?}", chunk_type);
@@ -256,7 +256,7 @@ fn read_ihdr<R: Read>(reader: &mut BufReader<R>) -> Result<IHDR> {
         bail!("Can't handle interlacing yet");
     }
 
-    skip_crc(reader)?;
+    check_crc(reader)?;
 
     let ihdr = IHDR {
         width,
@@ -288,7 +288,7 @@ pub struct Png {
 pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Png> {
     let f = File::open(path)?;
     // TODO for some reason reading chunk type fails if capacity is a bit below this, investigate
-    let mut reader = BufReader::new(f);
+    let mut reader = CrcReader::new(BufReader::new(f));
 
     // PNG header
     read_png_header(&mut reader)?;
@@ -486,8 +486,8 @@ fn bytes_per_pixel(color_type: &ColorType, bit_depth: &BitDepth) -> Result<u32> 
     }
 }
 
-fn process_chunk(
-    mut reader: &mut BufReader<File>,
+fn process_chunk<R: Read>(
+    mut reader: &mut CrcReader<BufReader<R>>,
     mut compressed_data: &mut Vec<u8>,
 ) -> Result<bool> {
     let (chunk_length, chunk_type) = read_chunk_length_and_type(&mut reader)?;
@@ -503,9 +503,9 @@ fn process_chunk(
         ChunkType::PLTE => bail!("Can't handle PNGs with palette yet!"),
         ChunkType::IHDR => bail!("Encountered a second IHDR chunk"),
         _ => {
-            skip_bytes(&mut reader, chunk_length)?;
+            skip_bytes(&mut reader.get_mut(), chunk_length)?;
         }
     }
-    skip_crc(&mut reader)?;
+    check_crc(&mut reader)?;
     Ok(true)
 }
