@@ -1,6 +1,10 @@
 use std::io;
 use std::io::Read;
 
+//
+// CRC-32
+//
+
 const fn make_crc_table() -> [u32; 256] {
     let mut n: usize = 0;
     let mut crc_table: [u32; 256] = [0; 256];
@@ -117,5 +121,44 @@ impl<R: Read> Read for CrcReader<R> {
             self.crc.update(*b);
         }
         Ok(n_read)
+    }
+}
+
+//
+// Adler-32
+//
+
+pub struct Adler32 {
+    a: u16,
+    b: u16,
+}
+
+/// # Examples
+///
+/// ```rust
+/// // Test uses the example presented in https://en.wikipedia.org/wiki/Adler-32
+/// use vekotin::digest::Adler32;
+///
+/// let mut adler = Adler32::new();
+/// let data = [87 as u8, 105, 107, 105, 112, 101, 100, 105, 97,];
+///
+/// for b in &data {
+///   adler.update(*b);
+/// }
+///
+/// assert_eq!(adler.digest(), 0x11E60398);
+/// ```
+impl Adler32 {
+    pub fn new() -> Adler32 {
+        Adler32 { a: 1, b: 0 }
+    }
+    pub fn update(&mut self, b: u8) -> &mut Self {
+        self.a = self.a.wrapping_add(b as u16);
+        self.b = self.b.wrapping_add(self.a);
+        self
+    }
+
+    pub fn digest(&self) -> u32 {
+        ((self.b as u32) << 16) + self.a as u32
     }
 }
