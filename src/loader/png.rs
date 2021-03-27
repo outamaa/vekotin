@@ -1,5 +1,5 @@
 use crate::compression::zlib;
-use crate::digest::CrcReader;
+use crate::digest::{Crc32, Digest, DigestReader};
 use anyhow::{anyhow, bail, Result};
 use std::convert::TryFrom;
 use std::fs::File;
@@ -23,7 +23,7 @@ fn read_u8<R: Read>(reader: &mut R) -> Result<u8> {
     Ok(b[0])
 }
 
-fn check_crc<R: Read>(reader: &mut CrcReader<R>) -> Result<()> {
+fn check_crc<R: Read>(reader: &mut DigestReader<R, Crc32>) -> Result<()> {
     let crc_from_reader = reader.digest();
     let crc = read_u32(reader)?;
     if crc != crc_from_reader {
@@ -93,9 +93,11 @@ fn read_chunk_type<R: Read>(reader: &mut R) -> Result<ChunkType> {
     Ok(chunk_type)
 }
 
-fn read_chunk_length_and_type<R: Read>(reader: &mut CrcReader<R>) -> Result<(u32, ChunkType)> {
+fn read_chunk_length_and_type<R: Read>(
+    reader: &mut DigestReader<R, Crc32>,
+) -> Result<(u32, ChunkType)> {
     let length = read_u32(reader)?;
-    reader.reset_crc();
+    reader.reset_digest();
     Ok((length, read_chunk_type(reader)?))
 }
 
@@ -218,7 +220,7 @@ struct IHDR {
     interlace_method: InterlaceMethod,
 }
 
-fn read_ihdr<R: Read>(reader: &mut CrcReader<R>) -> Result<IHDR> {
+fn read_ihdr<R: Read>(reader: &mut DigestReader<R, Crc32>) -> Result<IHDR> {
     let (chunk_length, chunk_type) = read_chunk_length_and_type(reader)?;
 
     if chunk_type != ChunkType::IHDR {
@@ -288,7 +290,7 @@ pub struct Png {
 pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Png> {
     let f = File::open(path)?;
     // TODO for some reason reading chunk type fails if capacity is a bit below this, investigate
-    let mut reader = CrcReader::new(BufReader::new(f));
+    let mut reader = DigestReader::new(BufReader::new(f), Crc32::new());
 
     // PNG header
     read_png_header(&mut reader)?;
@@ -487,7 +489,7 @@ fn bytes_per_pixel(color_type: &ColorType, bit_depth: &BitDepth) -> Result<u32> 
 }
 
 fn process_chunk<R: Read>(
-    mut reader: &mut CrcReader<BufReader<R>>,
+    mut reader: &mut DigestReader<BufReader<R>, Crc32>,
     mut compressed_data: &mut Vec<u8>,
 ) -> Result<bool> {
     let (chunk_length, chunk_type) = read_chunk_length_and_type(&mut reader)?;
