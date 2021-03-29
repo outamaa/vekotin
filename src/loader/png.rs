@@ -1,12 +1,12 @@
 use crate::compression::zlib;
-use crate::digest::{Crc32, Digest, DigestReader};
+use crate::digest::{Crc32, DigestReader};
 use anyhow::{anyhow, bail, Result};
 use std::convert::TryFrom;
 use std::fs::File;
 use std::io::prelude::*;
 use std::io::BufReader;
 use std::path::Path;
-use std::{cmp, str};
+use std::str;
 //
 // Helpers
 //

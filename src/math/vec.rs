@@ -1,19 +1,12 @@
 use crate::math::matrix::Matrix3;
-use num::traits::MulAddAssign;
-use num::{Float, One, Zero};
-use std::iter::{Copied, FromIterator};
-use std::ops::{
-    Add, AddAssign, Div, DivAssign, Index, IndexMut, Mul, MulAssign, Neg, Sub, SubAssign,
-};
-use std::slice::Iter;
+use num::{Float, Num};
+use std::iter::FromIterator;
+use std::ops::{Add, AddAssign, Div, Index, IndexMut, Mul, Neg, Sub, SubAssign};
 
 // General note: Use Copy, pass by value, trust the compiler to optimize. :)
 // Iterators used heavily to help with copy paste / macrology for dimensions other than 3
 
-pub trait VecElem:
-    Copy + One + Zero + Add + AddAssign + Mul + MulAddAssign + Sub + SubAssign + PartialEq
-{
-}
+pub trait VecElem: Copy + Num {}
 impl VecElem for f32 {}
 impl VecElem for i32 {}
 
@@ -125,19 +118,7 @@ impl<T: VecElem> Vec3<T> {
         }
         m
     }
-}
 
-impl<T: VecElem + Float> Vec3<T> {
-    pub fn length(&self) -> T {
-        self.length_squared().sqrt()
-    }
-
-    pub fn unit(&self) -> Vec3<T> {
-        *self / self.length()
-    }
-}
-
-impl<T: VecElem + Sub<Output = T>> Vec3<T> {
     /// Returns the cross product of `self` and `other`.
     ///
     /// # Examples
@@ -179,6 +160,16 @@ impl<T: VecElem> Vec3<T> {
     }
 }
 
+impl<T: VecElem + Float> Vec3<T> {
+    pub fn length(&self) -> T {
+        self.length_squared().sqrt()
+    }
+
+    pub fn unit(&self) -> Vec3<T> {
+        *self / self.length()
+    }
+}
+
 //
 // Arithmetic
 //
@@ -209,12 +200,12 @@ impl<T: VecElem> Add for Vec3<T> {
 impl<T: VecElem> AddAssign for Vec3<T> {
     fn add_assign(&mut self, rhs: Self) {
         for (i, c) in self.iter_mut().enumerate() {
-            *c += rhs[i];
+            *c = *c + rhs[i];
         }
     }
 }
 
-impl<T: VecElem + Sub<Output = T>> Sub for Vec3<T> {
+impl<T: VecElem> Sub for Vec3<T> {
     type Output = Vec3<T>;
 
     /// # Examples
@@ -236,7 +227,7 @@ impl<T: VecElem + Sub<Output = T>> Sub for Vec3<T> {
 impl<T: VecElem> SubAssign for Vec3<T> {
     fn sub_assign(&mut self, rhs: Self) {
         for (i, c) in self.iter_mut().enumerate() {
-            *c -= rhs[i];
+            *c = *c - rhs[i];
         }
     }
 }
@@ -290,6 +281,23 @@ impl Mul<Vec3<f32>> for f32 {
     /// assert_eq!(2.0 * v, Vec3f::new(2.0, 4.0, 6.0));
     /// ```
     fn mul(self, rhs: Vec3<f32>) -> Self::Output {
+        rhs * self
+    }
+}
+
+impl Mul<Vec3<i32>> for i32 {
+    type Output = Vec3<i32>;
+
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vekotin::math::vec::*;
+    ///
+    /// let v = Vec3i::new(1, 2, 3);
+    ///
+    /// assert_eq!(2 * v, Vec3i::new(2, 4, 6));
+    /// ```
+    fn mul(self, rhs: Vec3<i32>) -> Self::Output {
         rhs * self
     }
 }

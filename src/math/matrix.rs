@@ -1,5 +1,5 @@
 use crate::math::vec::{Vec3, VecElem};
-use num::{Float, One, Zero};
+use num::Float;
 use std::iter::FromIterator;
 use std::ops::{Add, Mul, Sub};
 use std::slice::Iter;
