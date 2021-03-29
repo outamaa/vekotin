@@ -1,5 +1,5 @@
-use crate::math::vec::{Vec3, VecElem};
-use num::Float;
+use crate::math::vec::{Vec3, VecElem, Vector};
+use num::{Float, Zero};
 use std::iter::FromIterator;
 use std::ops::{Add, Mul, Sub};
 use std::slice::Iter;
@@ -7,12 +7,21 @@ use std::slice::Iter;
 // Note: COLUMN major data layout, but usual row major indexing with get
 
 #[derive(Copy, Clone, Debug, PartialEq)]
-pub struct Matrix3<T: VecElem> {
-    columns: [Vec3<T>; 3],
+pub struct Matrix<T: VecElem, const N: usize> {
+    columns: [Vector<T, N>; N],
 }
 
+pub type Matrix2<T> = Matrix<T, 2>;
+pub type Matrix2f = Matrix2<f32>;
+pub type Matrix2i = Matrix2<i32>;
+
+pub type Matrix3<T> = Matrix<T, 3>;
 pub type Matrix3f = Matrix3<f32>;
 pub type Matrix3i = Matrix3<i32>;
+
+pub type Matrix4<T> = Matrix<T, 4>;
+pub type Matrix4f = Matrix4<f32>;
+pub type Matrix4i = Matrix4<i32>;
 
 impl<T: VecElem> Matrix3<T> {
     //
@@ -331,6 +340,7 @@ impl<T: VecElem> Mul<Vec3<T>> for Matrix3<T> {
     /// ```rust
     /// use vekotin::math::matrix::Matrix3f;
     /// use vekotin::math::vec::Vec3f;
+    /// use num::Zero;
     ///
     /// let zero = Matrix3f::zero();
     /// let id = Matrix3f::identity();
