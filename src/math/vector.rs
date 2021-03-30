@@ -15,6 +15,12 @@ pub struct Vector<T: VecElem, const N: usize> {
     components: [T; N],
 }
 
+impl<T: VecElem, const N: usize> Vector<T, N> {
+    pub fn abs(&self) -> T {
+        self.length_squared()
+    }
+}
+
 pub type Vec2<T> = Vector<T, 2>;
 pub type Vec2f = Vec2<f32>;
 pub type Vec2i = Vec2<i32>;
@@ -30,13 +36,20 @@ pub type Vec4i = Vec4<i32>;
 impl<T: VecElem, const N: usize> Zero for Vector<T, N> {
     #[inline]
     fn zero() -> Self {
-        Self {
-            components: [Zero::zero(); N],
-        }
+        Self::constant(Zero::zero())
     }
     #[inline]
     fn is_zero(&self) -> bool {
         self.components.iter().all(|&x| x.is_zero())
+    }
+}
+
+impl<T: VecElem, const N: usize> Vector<T, N> {
+    #[inline]
+    pub fn constant(value: T) -> Self {
+        Self {
+            components: [value; N],
+        }
     }
 }
 
@@ -102,7 +115,7 @@ impl<T: VecElem, const N: usize> Vector<T, N> {
     /// # Examples
     ///
     /// ```rust
-    /// use vekotin::math::vec::*;
+    /// use vekotin::math::vector::*;
     ///
     /// let v = Vec3f::new(1.0, 2.0, 3.0);
     /// let mut v_iter = v.iter();
@@ -123,13 +136,13 @@ impl<T: VecElem, const N: usize> Vector<T, N> {
     }
 }
 
-impl<T: VecElem> Vec3<T> {
+impl<T: VecElem, const N: usize> Vector<T, N> {
     /// Returns the dot - or inner - product of `self` and `other`.
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use vekotin::math::vec::*;
+    /// use vekotin::math::vector::*;
     ///
     /// let i = Vec3f::new(1.0, 0.0, 0.0);
     /// let j = Vec3f::new(0.0, 1.0, 0.0);
@@ -140,7 +153,7 @@ impl<T: VecElem> Vec3<T> {
     /// assert_eq!(0.0, i.dot(j));
     /// assert_eq!(1.0, k.dot(k));
     /// ```
-    pub fn dot(&self, other: Vec3<T>) -> T {
+    pub fn dot(&self, other: Self) -> T {
         let mut sum = T::zero();
         for (c_self, c_other) in self.iter().zip(other.iter()) {
             sum = sum + c_self * c_other;
@@ -151,13 +164,15 @@ impl<T: VecElem> Vec3<T> {
     pub fn length_squared(&self) -> T {
         self.dot(*self)
     }
+}
 
+impl<T: VecElem> Vec3<T> {
     /// Returns the outer product of `self` and `other`.
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use vekotin::math::vec::*;
+    /// use vekotin::math::vector::*;
     /// use vekotin::math::matrix::Matrix3f;
     ///
     /// let zero = Vec3f::zero();
@@ -188,7 +203,7 @@ impl<T: VecElem> Vec3<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use vekotin::math::vec::*;
+    /// use vekotin::math::vector::*;
     ///
     /// let zero = Vec3f::zero();
     /// let i = Vec3f::new(1.0, 0.0, 0.0);
@@ -237,7 +252,7 @@ impl<T: VecElem, const N: usize> Add for Vector<T, N> {
     /// # Examples
     ///
     /// ```rust
-    /// use vekotin::math::vec::*;
+    /// use vekotin::math::vector::*;
     ///
     /// let zero = Vec3f::zero();
     /// let i = Vec3f::new(1.0, 0.0, 0.0);
@@ -268,7 +283,7 @@ impl<T: VecElem, const N: usize> Sub for Vector<T, N> {
     /// # Examples
     ///
     /// ```rust
-    /// use vekotin::math::vec::*;
+    /// use vekotin::math::vector::*;
     ///
     /// let zero = Vec3f::zero();
     /// let i = Vec3f::new(1.0, 0.0, 0.0);
@@ -295,7 +310,7 @@ impl<T: VecElem + Neg<Output = T>, const N: usize> Neg for Vector<T, N> {
     /// # Examples
     ///
     /// ```rust
-    /// use vekotin::math::vec::*;
+    /// use vekotin::math::vector::*;
     ///
     /// let zero = Vec4f::zero();
     /// let i = Vec4f::new(1.0, 0.0, 0.0, 0.0);
@@ -314,7 +329,7 @@ impl<T: VecElem, const N: usize> Mul<T> for Vector<T, N> {
     /// # Examples
     ///
     /// ```rust
-    /// use vekotin::math::vec::*;
+    /// use vekotin::math::vector::*;
     ///
     /// let v = Vec2f::new(1.0, 2.0);
     ///
@@ -331,7 +346,7 @@ impl<const N: usize> Mul<Vector<f32, N>> for f32 {
     /// # Examples
     ///
     /// ```rust
-    /// use vekotin::math::vec::*;
+    /// use vekotin::math::vector::*;
     ///
     /// let v = Vec3f::new(1.0, 2.0, 3.0);
     ///
@@ -348,7 +363,7 @@ impl<const N: usize> Mul<Vector<i32, N>> for i32 {
     /// # Examples
     ///
     /// ```rust
-    /// use vekotin::math::vec::*;
+    /// use vekotin::math::vector::*;
     ///
     /// let v = Vec4i::new(1, 2, 3, 4);
     ///
@@ -365,7 +380,7 @@ impl<T: VecElem + Div<Output = T>, const N: usize> Div<T> for Vector<T, N> {
     /// # Examples
     ///
     /// ```rust
-    /// use vekotin::math::vec::*;
+    /// use vekotin::math::vector::*;
     ///
     /// let v = Vec4f::new(1.0, 2.0, 3.0, 4.0);
     ///
@@ -449,7 +464,7 @@ impl<T: VecElem, const N: usize> Index<usize> for Vector<T, N> {
 
     /// # Examples
     /// ```rust
-    /// use vekotin::math::vec::*;
+    /// use vekotin::math::vector::*;
     ///
     /// let v = Vec3f::new(1.0, 2.0, 3.0);
     /// assert_eq!(v[0], 1.0);
@@ -464,7 +479,7 @@ impl<T: VecElem, const N: usize> Index<usize> for Vector<T, N> {
 impl<T: VecElem, const N: usize> IndexMut<usize> for Vector<T, N> {
     /// # Examples
     /// ```rust
-    /// use vekotin::math::vec::*;
+    /// use vekotin::math::vector::*;
     ///
     /// let mut v = Vec3f::new(1.0, 2.0, 3.0);
     /// v[0] = 2.0;

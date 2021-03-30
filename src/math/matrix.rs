@@ -1,4 +1,4 @@
-use crate::math::vec::{Vec3, VecElem, Vector};
+use crate::math::vector::{Vec3, VecElem, Vector};
 use num::{Float, Zero};
 use std::iter::FromIterator;
 use std::ops::{Add, Mul, Sub};
@@ -60,14 +60,6 @@ impl<T: VecElem> Matrix3<T> {
     // Getters, setters, iterators
     //
 
-    pub fn get(&self, row: usize, col: usize) -> T {
-        self.columns[col][row]
-    }
-    pub fn set(&mut self, row: usize, col: usize, val: T) -> &mut Self {
-        self.columns[col][row] = val;
-        self
-    }
-
     pub fn row(&self, row: usize) -> Vec3<T> {
         Vec3::new(self.get(row, 0), self.get(row, 1), self.get(row, 2))
     }
@@ -76,11 +68,11 @@ impl<T: VecElem> Matrix3<T> {
         self.columns[col]
     }
 
-    pub fn columns(&self) -> Matrix3Iterator<T> {
+    pub fn columns(&self) -> MatrixIterator<T> {
         self.into_iter()
     }
 
-    pub fn columns_mut(&mut self) -> Matrix3MutIterator<T> {
+    pub fn columns_mut(&mut self) -> MatrixMutIterator<T> {
         self.into_iter()
     }
 
@@ -116,6 +108,16 @@ impl<T: VecElem> Matrix3<T> {
     }
 }
 
+impl<T: VecElem, const N: usize> Matrix<T, N> {
+    pub fn get(&self, row: usize, col: usize) -> T {
+        self.columns[col][row]
+    }
+    pub fn set(&mut self, row: usize, col: usize, val: T) -> &mut Self {
+        self.columns[col][row] = val;
+        self
+    }
+}
+
 impl<T: Float + VecElem + Mul<Matrix3<T>, Output = Matrix3<T>>> Matrix3<T> {
     /// Given vector `a`, return a matrix that, when multiplied with vector `v` returns the same
     /// result as `a.cross(v)`.
@@ -124,7 +126,7 @@ impl<T: Float + VecElem + Mul<Matrix3<T>, Output = Matrix3<T>>> Matrix3<T> {
     ///
     /// ```rust
     /// use vekotin::math::matrix::Matrix3f;
-    /// use vekotin::math::vec::Vec3f;
+    /// use vekotin::math::vector::Vec3f;
     ///
     /// let i = Vec3f::new(1.0, 0.0, 0.0);
     /// let j = Vec3f::new(0.0, 1.0, 0.0);
@@ -158,6 +160,18 @@ impl<T: Float + VecElem + Mul<Matrix3<T>, Output = Matrix3<T>>> Matrix3<T> {
         Matrix3::rotation(theta, Vec3::new(T::zero(), T::zero(), T::one()))
     }
 
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vekotin::assert_eq_eps;
+    /// use vekotin::math::{Matrix3f, Vec3f};
+    /// use std::f32::consts::FRAC_PI_2;
+    ///
+    /// let rot: Matrix3f = Matrix3f::rotation_z(FRAC_PI_2);
+    /// let i = Vec3f::new(1.0, 0.0, 0.0);
+    /// let j = Vec3f::new(0.0, 1.0, 0.0);
+    /// assert_eq_eps!(rot * i, j, 0.00000001);
+    /// ```
     pub fn rotation(theta: T, a: Vec3<T>) -> Matrix3<T> {
         let cos_theta = theta.cos();
         let sin_theta = theta.sin();
@@ -339,7 +353,7 @@ impl<T: VecElem> Mul<Vec3<T>> for Matrix3<T> {
     ///
     /// ```rust
     /// use vekotin::math::matrix::Matrix3f;
-    /// use vekotin::math::vec::Vec3f;
+    /// use vekotin::math::vector::Vec3f;
     /// use num::Zero;
     ///
     /// let zero = Matrix3f::zero();
@@ -396,22 +410,22 @@ impl Mul<Matrix3<f32>> for f32 {
 // Iterators
 //
 
-pub struct Matrix3Iterator<'a, T: VecElem> {
+pub struct MatrixIterator<'a, T: VecElem> {
     iter: Iter<'a, Vec3<T>>,
 }
 
 impl<'a, T: VecElem> IntoIterator for &'a Matrix3<T> {
     type Item = &'a Vec3<T>;
-    type IntoIter = Matrix3Iterator<'a, T>;
+    type IntoIter = MatrixIterator<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        Matrix3Iterator {
+        MatrixIterator {
             iter: self.columns.iter(),
         }
     }
 }
 
-impl<'a, T: VecElem> Iterator for Matrix3Iterator<'a, T> {
+impl<'a, T: VecElem> Iterator for MatrixIterator<'a, T> {
     type Item = &'a Vec3<T>;
 
     fn next(&mut self) -> Option<Self::Item> {
@@ -419,22 +433,22 @@ impl<'a, T: VecElem> Iterator for Matrix3Iterator<'a, T> {
     }
 }
 
-pub struct Matrix3MutIterator<'a, T: VecElem> {
+pub struct MatrixMutIterator<'a, T: VecElem> {
     iter: std::slice::IterMut<'a, Vec3<T>>,
 }
 
 impl<'a, T: VecElem> IntoIterator for &'a mut Matrix3<T> {
     type Item = &'a mut Vec3<T>;
-    type IntoIter = Matrix3MutIterator<'a, T>;
+    type IntoIter = MatrixMutIterator<'a, T>;
 
     fn into_iter(self) -> Self::IntoIter {
-        Matrix3MutIterator {
+        MatrixMutIterator {
             iter: self.columns.iter_mut(),
         }
     }
 }
 
-impl<'a, T: VecElem> Iterator for Matrix3MutIterator<'a, T> {
+impl<'a, T: VecElem> Iterator for MatrixMutIterator<'a, T> {
     type Item = &'a mut Vec3<T>;
 
     fn next(&mut self) -> Option<Self::Item> {

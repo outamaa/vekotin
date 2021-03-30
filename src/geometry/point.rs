@@ -1,4 +1,4 @@
-use crate::math::vec::{VecElem, Vector};
+use crate::math::vector::{VecElem, Vector};
 use std::ops::{Add, Sub};
 
 #[derive(Copy, Clone, Debug, PartialEq)]

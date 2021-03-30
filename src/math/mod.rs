@@ -1,5 +1,6 @@
+pub mod assert;
 pub mod matrix;
-pub mod vec;
+pub mod vector;
 
 pub use matrix::Matrix;
 
@@ -15,16 +16,16 @@ pub use matrix::Matrix4;
 pub use matrix::Matrix4f;
 pub use matrix::Matrix4i;
 
-pub use matrix::Vector;
+pub use vector::Vector;
 
-pub use matrix::Vec2;
-pub use matrix::Vec2f;
-pub use matrix::Vec2i;
+pub use vector::Vec2;
+pub use vector::Vec2f;
+pub use vector::Vec2i;
 
-pub use matrix::Vec3;
-pub use matrix::Vec3f;
-pub use matrix::Vec3i;
+pub use vector::Vec3;
+pub use vector::Vec3f;
+pub use vector::Vec3i;
 
-pub use matrix::Vec4;
-pub use matrix::Vec4f;
-pub use matrix::Vec4i;
+pub use vector::Vec4;
+pub use vector::Vec4f;
+pub use vector::Vec4i;
