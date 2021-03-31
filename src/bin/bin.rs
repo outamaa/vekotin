@@ -1,9 +1,12 @@
 use anyhow::{bail, Result};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use sdl2::pixels::PixelFormatEnum;
+use sdl2::pixels::{Color, PixelFormatEnum};
 use sdl2::render::{BlendMode, Canvas};
 use sdl2::video::Window;
+use vekotin::geometry::line_segment::{LineSegment, LineSegment2i};
+use vekotin::geometry::Point2i;
+use vekotin::gfx;
 use vekotin::loader::png;
 
 pub struct Game {
@@ -49,6 +52,11 @@ impl Game {
         texture.update(None, &img.data, (img.bytes_per_pixel * img.width) as usize)?;
 
         canvas.copy(&texture, None, None).unwrap();
+        gfx::cpu::draw_line_segment(
+            &mut canvas,
+            &LineSegment2i::new(Point2i::new(0, 0), Point2i::new(200, 200)),
+            Color::RGBA(255, 255, 255, 255),
+        );
         canvas.present();
 
         let event_pump = sdl_context.event_pump().unwrap();

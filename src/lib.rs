@@ -6,5 +6,6 @@ pub mod compression;
 pub mod digest;
 pub mod fiddling;
 pub mod geometry;
+pub mod gfx;
 pub mod loader;
 pub mod math;

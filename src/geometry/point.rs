@@ -1,4 +1,5 @@
 use crate::math::vector::{VecElem, Vector};
+use crate::math::{Vec2, Vec3};
 use std::ops::{Add, Sub};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -15,6 +16,38 @@ pub type Point3i = Point3<i32>;
 pub type Point4<T> = Point<T, 4>;
 pub type Point4f = Point4<f32>;
 pub type Point4i = Point4<i32>;
+
+impl<T: VecElem> Point2<T> {
+    pub fn new(x: T, y: T) -> Self {
+        Point(Vec2::<T>::new(x, y))
+    }
+    #[inline]
+    pub fn x(&self) -> T {
+        self.0.x()
+    }
+    #[inline]
+    pub fn y(&self) -> T {
+        self.0.y()
+    }
+}
+
+impl<T: VecElem> Point3<T> {
+    pub fn new(x: T, y: T, z: T) -> Self {
+        Point(Vec3::<T>::new(x, y, z))
+    }
+    #[inline]
+    pub fn x(&self) -> T {
+        self.0.x()
+    }
+    #[inline]
+    pub fn y(&self) -> T {
+        self.0.y()
+    }
+    #[inline]
+    pub fn z(&self) -> T {
+        self.0.z()
+    }
+}
 
 impl<T: VecElem, const N: usize> Add<Vector<T, N>> for Point<T, N> {
     type Output = Point<T, N>;

@@ -1,3 +1,4 @@
+pub mod line_segment;
 pub mod point;
 
 pub use point::Point2;
