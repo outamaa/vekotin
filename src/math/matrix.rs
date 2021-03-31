@@ -1,5 +1,5 @@
 use crate::math::vector::{Vec3, VecElem, Vector};
-use num::{Float, Zero};
+pub use num::{Float, Zero};
 use std::iter::FromIterator;
 use std::ops::{Add, Mul, Sub};
 use std::slice::Iter;
@@ -83,7 +83,7 @@ impl<T: VecElem> Matrix3<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use vekotin::math::matrix::Matrix3f;
+    /// use vekotin::math::matrix::*;
     ///
     /// let zero = Matrix3f::zero();
     /// let id = Matrix3f::identity();
@@ -125,8 +125,8 @@ impl<T: Float + VecElem + Mul<Matrix3<T>, Output = Matrix3<T>>> Matrix3<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use vekotin::math::matrix::Matrix3f;
-    /// use vekotin::math::vector::Vec3f;
+    /// use vekotin::math::matrix::*;
+    /// use vekotin::math::vector::*;
     ///
     /// let i = Vec3f::new(1.0, 0.0, 0.0);
     /// let j = Vec3f::new(0.0, 1.0, 0.0);
@@ -164,7 +164,8 @@ impl<T: Float + VecElem + Mul<Matrix3<T>, Output = Matrix3<T>>> Matrix3<T> {
     ///
     /// ```rust
     /// use vekotin::assert_eq_eps;
-    /// use vekotin::math::{Matrix3f, Vec3f};
+    /// use vekotin::math::matrix::*;
+    /// use vekotin::math::vector::*;
     /// use std::f32::consts::FRAC_PI_2;
     ///
     /// let rot: Matrix3f = Matrix3f::rotation_z(FRAC_PI_2);
@@ -187,7 +188,7 @@ impl<T: Float + VecElem + Mul<Matrix3<T>, Output = Matrix3<T>>> Matrix3<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use vekotin::math::matrix::{Matrix3, Matrix3f};
+    /// use vekotin::math::matrix::*;
     ///
     /// let zero: Matrix3f = Matrix3::zero();
     /// let id: Matrix3f = Matrix3::identity();
@@ -216,8 +217,8 @@ impl<T: Float + VecElem + Mul<Matrix3<T>, Output = Matrix3<T>>> Matrix3<T> {
     }
 }
 
-impl<T: VecElem> Matrix3<T> {
-    pub fn zero() -> Matrix3<T> {
+impl<T: VecElem> Zero for Matrix3<T> {
+    fn zero() -> Matrix3<T> {
         Matrix3::new(
             T::zero(),
             T::zero(),
@@ -229,6 +230,10 @@ impl<T: VecElem> Matrix3<T> {
             T::zero(),
             T::zero(),
         )
+    }
+
+    fn is_zero(&self) -> bool {
+        self.columns().all(|c| c.iter().all(|v| v.is_zero()))
     }
 }
 
@@ -252,7 +257,7 @@ impl<T: VecElem + Sub<Output = T>> Matrix3<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use vekotin::math::matrix::Matrix3f;
+    /// use vekotin::math::matrix::*;
     ///
     /// let zero = Matrix3f::zero();
     /// let id = Matrix3f::identity();
@@ -274,7 +279,7 @@ impl<T: VecElem> Matrix3<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use vekotin::math::matrix::Matrix3f;
+    /// use vekotin::math::matrix::*;
     ///
     /// let zero = Matrix3f::zero();
     /// let id = Matrix3f::identity();
@@ -301,7 +306,7 @@ impl<T: VecElem> Add for Matrix3<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use vekotin::math::matrix::Matrix3f;
+    /// use vekotin::math::matrix::*;
     ///
     /// let zero = Matrix3f::zero();
     /// let id = Matrix3f::identity();
@@ -325,7 +330,7 @@ impl<T: VecElem> Mul for Matrix3<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use vekotin::math::matrix::Matrix3f;
+    /// use vekotin::math::matrix::*;
     ///
     /// let zero = Matrix3f::zero();
     /// let id = Matrix3f::identity();
@@ -352,9 +357,8 @@ impl<T: VecElem> Mul<Vec3<T>> for Matrix3<T> {
     /// # Examples
     ///
     /// ```rust
-    /// use vekotin::math::matrix::Matrix3f;
-    /// use vekotin::math::vector::Vec3f;
-    /// use num::Zero;
+    /// use vekotin::math::matrix::*;
+    /// use vekotin::math::vector::*;
     ///
     /// let zero = Matrix3f::zero();
     /// let id = Matrix3f::identity();
