@@ -7,36 +7,52 @@ use std::io::prelude::*;
 use std::io::BufReader;
 use std::path::Path;
 use std::str;
+
 //
-// Helpers
+// Public interface
 //
-
-fn read_u32<R: Read>(reader: &mut R) -> Result<u32> {
-    let mut b = [0; 4];
-    reader.read_exact(&mut b)?;
-    Ok(u32::from_be_bytes(b))
+#[derive(PartialEq, Debug)]
+pub struct Png {
+    pub width: u32,
+    pub height: u32,
+    pub bit_depth: BitDepth,
+    pub color_type: ColorType,
+    pub bytes_per_pixel: u32,
+    pub data: Vec<u8>,
 }
 
-fn read_u8<R: Read>(reader: &mut R) -> Result<u8> {
-    let mut b = [0; 1];
-    reader.read_exact(&mut b)?;
-    Ok(b[0])
-}
+pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Png> {
+    let f = File::open(path)?;
+    // TODO for some reason reading chunk type fails if capacity is a bit below this, investigate
+    let mut reader = DigestReader::new(BufReader::new(f), Crc32::new());
 
-fn check_crc<R: Read>(reader: &mut DigestReader<R, Crc32>) -> Result<()> {
-    let crc_from_reader = reader.digest();
-    let crc = read_u32(reader)?;
-    if crc != crc_from_reader {
-        bail!("Invalid CRC, {} != {}", crc, crc_from_reader);
-    }
-    Ok(())
-}
+    // PNG header
+    read_png_header(&mut reader)?;
 
-// For development
-fn skip_bytes<R: Read>(reader: &mut R, n: u32) -> Result<()> {
-    let mut v = vec![0 as u8; n as usize];
-    reader.read_exact(&mut v)?;
-    Ok(())
+    // IHDR must be the first chunk.
+    let ihdr = read_ihdr(&mut reader)?;
+    println!("{:?}", ihdr);
+
+    // Loop through the chunks, copying data to `compressed_data`
+    let mut compressed_data: Vec<u8> = Vec::new();
+    while process_chunk(&mut reader, &mut compressed_data)? {}
+
+    let mut decompressed_data: Vec<u8> = Vec::new();
+    zlib::decompress(&compressed_data, &mut decompressed_data)?;
+
+    let image_size: usize = (ihdr.width * ihdr.height * ihdr.bytes_per_pixel) as usize;
+    let mut image: Vec<u8> = vec![0; image_size];
+
+    apply_filters(&ihdr, &mut decompressed_data, &mut image)?;
+
+    Ok(Png {
+        width: ihdr.width,
+        height: ihdr.height,
+        bit_depth: ihdr.bit_depth,
+        color_type: ihdr.color_type,
+        bytes_per_pixel: ihdr.bytes_per_pixel,
+        data: image,
+    })
 }
 
 //
@@ -274,53 +290,6 @@ fn read_ihdr<R: Read>(reader: &mut DigestReader<R, Crc32>) -> Result<IHDR> {
     Ok(ihdr)
 }
 
-//
-// Public interface
-//
-#[derive(PartialEq, Debug)]
-pub struct Png {
-    pub width: u32,
-    pub height: u32,
-    pub bit_depth: BitDepth,
-    pub color_type: ColorType,
-    pub bytes_per_pixel: u32,
-    pub data: Vec<u8>,
-}
-
-pub fn load_from_file<P: AsRef<Path>>(path: P) -> Result<Png> {
-    let f = File::open(path)?;
-    // TODO for some reason reading chunk type fails if capacity is a bit below this, investigate
-    let mut reader = DigestReader::new(BufReader::new(f), Crc32::new());
-
-    // PNG header
-    read_png_header(&mut reader)?;
-
-    // IHDR must be the first chunk.
-    let ihdr = read_ihdr(&mut reader)?;
-    println!("{:?}", ihdr);
-
-    // Loop through the chunks, copying data to `compressed_data`
-    let mut compressed_data: Vec<u8> = Vec::new();
-    while process_chunk(&mut reader, &mut compressed_data)? {}
-
-    let mut decompressed_data: Vec<u8> = Vec::new();
-    zlib::decompress(&compressed_data, &mut decompressed_data)?;
-
-    let image_size: usize = (ihdr.width * ihdr.height * ihdr.bytes_per_pixel) as usize;
-    let mut image: Vec<u8> = vec![0; image_size];
-
-    apply_filters(&ihdr, &mut decompressed_data, &mut image)?;
-
-    Ok(Png {
-        width: ihdr.width,
-        height: ihdr.height,
-        bit_depth: ihdr.bit_depth,
-        color_type: ihdr.color_type,
-        bytes_per_pixel: ihdr.bytes_per_pixel,
-        data: image,
-    })
-}
-
 #[derive(Debug, PartialEq)]
 enum FilterAlgorithm {
     None,
@@ -510,4 +479,36 @@ fn process_chunk<R: Read>(
     }
     check_crc(&mut reader)?;
     Ok(true)
+}
+
+//
+// Helpers
+//
+
+fn read_u32<R: Read>(reader: &mut R) -> Result<u32> {
+    let mut b = [0; 4];
+    reader.read_exact(&mut b)?;
+    Ok(u32::from_be_bytes(b))
+}
+
+fn read_u8<R: Read>(reader: &mut R) -> Result<u8> {
+    let mut b = [0; 1];
+    reader.read_exact(&mut b)?;
+    Ok(b[0])
+}
+
+fn check_crc<R: Read>(reader: &mut DigestReader<R, Crc32>) -> Result<()> {
+    let crc_from_reader = reader.digest();
+    let crc = read_u32(reader)?;
+    if crc != crc_from_reader {
+        bail!("Invalid CRC, {} != {}", crc, crc_from_reader);
+    }
+    Ok(())
+}
+
+// For development
+fn skip_bytes<R: Read>(reader: &mut R, n: u32) -> Result<()> {
+    let mut v = vec![0 as u8; n as usize];
+    reader.read_exact(&mut v)?;
+    Ok(())
 }
