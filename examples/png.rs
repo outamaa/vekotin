@@ -52,11 +52,6 @@ impl Game {
         texture.update(None, &img.data, (img.bytes_per_pixel * img.width) as usize)?;
 
         canvas.copy(&texture, None, None).unwrap();
-        gfx::cpu::draw_line_segment(
-            &mut canvas,
-            &LineSegment2i::new(Point2i::new(0, 0), Point2i::new(200, 200)),
-            Color::RGBA(255, 255, 255, 255),
-        );
         canvas.present();
 
         let event_pump = sdl_context.event_pump().unwrap();

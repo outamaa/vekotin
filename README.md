@@ -10,3 +10,4 @@ NIH is strong in this one.
 - [RFC 1950 (ZLIB)](https://tools.ietf.org/html/rfc1950)
 - [RFC 1951 (DEFLATE)](https://tools.ietf.org/html/rfc1951)
 - [ssloy/tinyrenderer](https://github.com/ssloy/tinyrenderer/wiki)
+- [Object Files (.obj)](http://paulbourke.net/dataformats/obj/)
