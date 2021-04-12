@@ -5,6 +5,7 @@ use std::fs::File;
 use std::io;
 use std::io::BufRead;
 use std::path::Path;
+use std::str::SplitWhitespace;
 
 //
 // TODO: For now, no support for e.g. 4D coordinates for vertices or 3D textures
@@ -39,13 +40,84 @@ impl Obj {
         let f = File::open(path)?;
         let mut obj = Obj::new();
 
-        lazy_static! {
-            static ref r_v: Regex = Regex::new(r"^v (\d+.\d+) (\d+.\d+) (\d+.\d+)").unwrap();
-        }
+        // lazy_static! {
+        //     static ref v_match: Regex = Regex::new(r"^v").unwrap();
+        //     static ref v_capt: Regex = Regex::new(r"^v (\d+.\d+) (\d+.\d+) (\d+.\d+)").unwrap();
+        // }
         for (line_num, maybe_line) in io::BufReader::new(f).lines().enumerate() {
             let line = maybe_line?;
-            r_v.is_match(&line);
+            let mut elems = line.split_whitespace();
+            let line_type = elems.next().ok_or(anyhow!("No line type"))?;
+            match line_type {
+                "v" => {
+                    obj.vertices.push(parse_vec3f(elems)?);
+                }
+                "vt" => {
+                    obj.uvs.push(parse_vec2f(elems)?);
+                }
+                "vn" => {
+                    obj.vertices.push(parse_vec3f(elems)?);
+                }
+
+                _ => {}
+            }
         }
         Ok(obj)
     }
+}
+
+fn parse_vec2f<'a, T: Iterator<Item = &'a str>>(mut elements: T) -> Result<Vec2f> {
+    let x = elements
+        .next()
+        .ok_or(anyhow!("x not found"))?
+        .parse::<f32>()?;
+    let y = elements
+        .next()
+        .ok_or(anyhow!("y not found"))?
+        .parse::<f32>()?;
+    Ok(Vec2f::new(x, y))
+}
+
+fn parse_vec3f<'a, T: Iterator<Item = &'a str>>(mut elements: T) -> Result<Vec3f> {
+    let x = elements
+        .next()
+        .ok_or(anyhow!("x not found"))?
+        .parse::<f32>()?;
+    let y = elements
+        .next()
+        .ok_or(anyhow!("y not found"))?
+        .parse::<f32>()?;
+    let z = elements
+        .next()
+        .ok_or(anyhow!("z not found"))?
+        .parse::<f32>()?;
+    Ok(Vec3f::new(x, y, z))
+}
+
+type FaceIndexTriple = (u32, u32, u32);
+
+// TODO: Doesn't work (or compile) yet
+fn parse_face<'a, T: Iterator<Item = &'a str>>(
+    mut elements: T, // ["1/2/3", "2/3/4", ...]
+) -> Result<Vec<FaceIndexTriple>> {
+    elements.filter_map(parse_face_index_triple).collect()
+}
+
+fn parse_face_index_triple<'a, T: Iterator<Item = &'a str>>(
+    mut elements: T,
+) -> Result<FaceIndexTriple> {
+    let v = elements
+        .next()
+        .ok_or(anyhow!("v not found"))?
+        .parse::<u32>()?;
+    let vt = elements
+        .next()
+        .ok_or(anyhow!("vt not found"))?
+        .parse::<u32>()?;
+    let vn = elements
+        .next()
+        .ok_or(anyhow!("vn not found"))?
+        .parse::<u32>()?;
+
+    Ok((v, vt, vn))
 }
