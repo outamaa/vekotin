@@ -96,11 +96,28 @@ fn parse_vec3f<'a, T: Iterator<Item = &'a str>>(mut elements: T) -> Result<Vec3f
 
 type FaceIndexTriple = (u32, u32, u32);
 
-// TODO: Doesn't work (or compile) yet
 fn parse_face<'a, T: Iterator<Item = &'a str>>(
     mut elements: T, // ["1/2/3", "2/3/4", ...]
 ) -> Result<Vec<FaceIndexTriple>> {
-    elements.filter_map(parse_face_index_triple).collect()
+    let triples = elements
+        .map(|s| s.split('/'))
+        .map(parse_face_index_triple)
+        .fold(Ok(vec![]), |mut v, maybe_triple| match maybe_triple {
+            Ok(triple) => {
+                v.as_mut().map(|v| v.push(triple));
+                v
+            }
+            Err(e) => Err(e),
+        })?;
+    println!("{:?}", &triples);
+    if triples.len() < 3 {
+        Err(anyhow!("Face with less than 3 vertices: {:?}", triples))
+    } else if triples.len() == 3 {
+        triples
+    } else {
+        // TODO: Face is not a triangle, transform into a set of triangles
+        // e.g. [0, 1, 2, 3, 4] => [_0, 1, 2_, _0, 2, 3_, _0, 3, 4_]
+    }
 }
 
 fn parse_face_index_triple<'a, T: Iterator<Item = &'a str>>(
