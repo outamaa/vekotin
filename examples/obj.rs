@@ -36,7 +36,6 @@ fn draw_triangle(canvas: &mut Canvas<Window>, obj: &Obj, i: usize) {
         h as i32 - ((v2.y() + 1.0) * h as f32 / 2.0) as i32,
     );
 
-    println!("w={}, h={}", w, h);
     gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(p0, p1), c);
     gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(p1, p2), c);
     gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(p2, p0), c);
