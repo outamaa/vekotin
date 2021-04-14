@@ -1,6 +1,5 @@
 use crate::math::{Vec2f, Vec3f};
 use anyhow::{anyhow, bail, Result};
-use regex::Regex;
 use std::fs::File;
 use std::io;
 use std::io::BufRead;
@@ -14,14 +13,18 @@ use std::str::SplitWhitespace;
 //
 // Public interface
 //
+
+type TriangleIndexTriple = (u32, u32, u32);
+
 #[derive(PartialEq, Debug)]
 pub struct Obj {
+    // TODO: use points for vertices and uvs after implementing Transform
     pub vertices: Vec<Vec3f>,
     pub uvs: Vec<Vec2f>,
     pub normals: Vec<Vec3f>,
-    pub vertex_indices: Vec<u32>,
-    pub uv_indices: Vec<u32>,
-    pub normal_indices: Vec<u32>,
+    pub vertex_index_triples: Vec<TriangleIndexTriple>,
+    pub uv_index_triples: Vec<TriangleIndexTriple>,
+    pub normal_index_triples: Vec<TriangleIndexTriple>,
 }
 
 impl Obj {
@@ -30,9 +33,9 @@ impl Obj {
             vertices: Vec::new(),
             uvs: Vec::new(),
             normals: Vec::new(),
-            vertex_indices: Vec::new(),
-            uv_indices: Vec::new(),
-            normal_indices: Vec::new(),
+            vertex_index_triples: Vec::new(),
+            uv_index_triples: Vec::new(),
+            normal_index_triples: Vec::new(),
         }
     }
 
@@ -40,12 +43,11 @@ impl Obj {
         let f = File::open(path)?;
         let mut obj = Obj::new();
 
-        // lazy_static! {
-        //     static ref v_match: Regex = Regex::new(r"^v").unwrap();
-        //     static ref v_capt: Regex = Regex::new(r"^v (\d+.\d+) (\d+.\d+) (\d+.\d+)").unwrap();
-        // }
         for (line_num, maybe_line) in io::BufReader::new(f).lines().enumerate() {
             let line = maybe_line?;
+            if line.is_empty() {
+                continue;
+            }
             let mut elems = line.split_whitespace();
             let line_type = elems.next().ok_or(anyhow!("No line type"))?;
             match line_type {
@@ -56,18 +58,30 @@ impl Obj {
                     obj.uvs.push(parse_vec2f(elems)?);
                 }
                 "vn" => {
-                    obj.vertices.push(parse_vec3f(elems)?);
+                    obj.normals.push(parse_vec3f(elems)?);
                 }
                 "f" => {
-                    for (v_idx, vt_idx, vn_idx) in parse_face(elems)? {
-                        obj.vertex_indices.push(v_idx);
-                        obj.uv_indices.push(vt_idx);
-                        obj.normal_indices.push(vn_idx);
+                    for triple in parse_face(elems)?.windows(3) {
+                        obj.vertex_index_triples.push((
+                            triple[0].0 - 1,
+                            triple[1].0 - 1,
+                            triple[2].0 - 1,
+                        ));
+                        obj.uv_index_triples.push((
+                            triple[0].1 - 1,
+                            triple[1].1 - 1,
+                            triple[2].1 - 1,
+                        ));
+                        obj.normal_index_triples.push((
+                            triple[0].2 - 1,
+                            triple[1].2 - 1,
+                            triple[2].2 - 1,
+                        ));
                     }
                 }
                 "#" => {}
                 _ => {
-                    println!("Skipping line: {}", line);
+                    println!("Skipping line {}: {}", line_num, line);
                 }
             }
         }
