@@ -58,8 +58,17 @@ impl Obj {
                 "vn" => {
                     obj.vertices.push(parse_vec3f(elems)?);
                 }
-
-                _ => {}
+                "f" => {
+                    for (v_idx, vt_idx, vn_idx) in parse_face(elems)? {
+                        obj.vertex_indices.push(v_idx);
+                        obj.uv_indices.push(vt_idx);
+                        obj.normal_indices.push(vn_idx);
+                    }
+                }
+                "#" => {}
+                _ => {
+                    println!("Skipping line: {}", line);
+                }
             }
         }
         Ok(obj)
@@ -109,7 +118,7 @@ fn parse_face<'a, T: Iterator<Item = &'a str>>(
             }
             Err(e) => Err(e),
         })?;
-    println!("{:?}", &triples);
+
     if triples.len() < 3 {
         Err(anyhow!("Face with less than 3 vertices: {:?}", triples))
     } else if triples.len() == 3 {
