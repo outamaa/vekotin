@@ -113,10 +113,18 @@ fn parse_face<'a, T: Iterator<Item = &'a str>>(
     if triples.len() < 3 {
         Err(anyhow!("Face with less than 3 vertices: {:?}", triples))
     } else if triples.len() == 3 {
-        triples
+        Ok(triples)
     } else {
-        // TODO: Face is not a triangle, transform into a set of triangles
+        // Face is not a triangle, transform into a set of triangles
         // e.g. [0, 1, 2, 3, 4] => [_0, 1, 2_, _0, 2, 3_, _0, 3, 4_]
+        let start_triple = triples[0];
+        let triangled_triples: Vec<FaceIndexTriple> = triples[1..]
+            .windows(2)
+            // TODO: How to do this without vec! and heap allocation
+            // why not just plain old for loop?
+            .flat_map(|w| vec![start_triple, w[0], w[1]])
+            .collect();
+        Ok(triangled_triples)
     }
 }
 
