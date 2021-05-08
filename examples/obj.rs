@@ -2,9 +2,9 @@ use anyhow::{bail, Result};
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::pixels::{Color, PixelFormatEnum};
-use sdl2::render::{BlendMode, Canvas};
+use sdl2::render::Canvas;
 use sdl2::video::Window;
-use vekotin::geometry::line_segment::{LineSegment, LineSegment2i};
+use vekotin::geometry::line_segment::LineSegment2i;
 use vekotin::geometry::Point2i;
 use vekotin::gfx;
 use vekotin::loader::obj::Obj;
@@ -21,6 +21,7 @@ fn draw_triangle(canvas: &mut Canvas<Window>, obj: &Obj, i: usize) {
     let w = viewport.width();
     let h = viewport.height();
     let v0 = obj.vertices[v_indices.0 as usize];
+    // Project the 3D points onto the canvas, orthographic projection
     let p0 = Point2i::new(
         ((v0.x() + 1.0) * w as f32 / 2.0) as i32,
         h as i32 - ((v0.y() + 1.0) * h as f32 / 2.0) as i32,

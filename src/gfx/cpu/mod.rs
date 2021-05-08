@@ -46,3 +46,5 @@ pub fn draw_line_segment(canvas: &mut Canvas<Window>, line_segment: &LineSegment
         }
     }
 }
+
+pub fn draw_triangle(canvas: &mut Canvas<Window>, line_segment: &LineSegment2i, color: Color) {}

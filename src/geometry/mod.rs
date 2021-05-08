@@ -1,5 +1,6 @@
 pub mod line_segment;
 pub mod point;
+pub mod triangle;
 
 pub use point::Point2;
 pub use point::Point2f;

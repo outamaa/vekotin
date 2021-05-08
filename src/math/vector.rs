@@ -6,9 +6,21 @@ use std::ops::{Add, AddAssign, Div, Index, IndexMut, Mul, Neg, Sub, SubAssign};
 // General note: Use Copy, pass by value, trust the compiler to optimize. :)
 // Iterators used heavily to help with copy paste / macrology for dimensions other than 3
 
-pub trait VecElem: Copy + Num {}
-impl VecElem for f32 {}
-impl VecElem for i32 {}
+pub trait VecElem: Copy + Num {
+    fn as_f32(&self) -> f32;
+}
+impl VecElem for f32 {
+    #[inline(always)]
+    fn as_f32(&self) -> f32 {
+        *self
+    }
+}
+impl VecElem for i32 {
+    #[inline(always)]
+    fn as_f32(&self) -> f32 {
+        *self as f32
+    }
+}
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Vector<T: VecElem, const N: usize> {
