@@ -5,6 +5,7 @@ use sdl2::pixels::{Color, PixelFormatEnum};
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 use vekotin::geometry::line_segment::LineSegment2i;
+use vekotin::geometry::triangle::{Triangle2i, Triangle3f};
 use vekotin::geometry::Point2i;
 use vekotin::gfx;
 use vekotin::loader::obj::Obj;
@@ -16,7 +17,8 @@ pub struct Game {
 
 fn draw_triangle(canvas: &mut Canvas<Window>, obj: &Obj, i: usize) {
     let v_indices = &obj.vertex_index_triples[i];
-    let c = Color::RGBA(255, 255, 255, 255);
+    let white = Color::RGBA(255, 255, 255, 255);
+    let gray = Color::RGBA(128, 128, 128, 255);
     let viewport = canvas.viewport();
     let w = viewport.width();
     let h = viewport.height();
@@ -36,10 +38,14 @@ fn draw_triangle(canvas: &mut Canvas<Window>, obj: &Obj, i: usize) {
         ((v2.x() + 1.0) * w as f32 / 2.0) as i32,
         h as i32 - ((v2.y() + 1.0) * h as f32 / 2.0) as i32,
     );
-
-    gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(p0, p1), c);
-    gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(p1, p2), c);
-    gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(p2, p0), c);
+    let normal = Triangle3f::new(&v0.into(), &v1.into(), &v2.into()).normal();
+    let t = Triangle2i::new(&p0, &p1, &p2);
+    if normal.z() >= 0.0 {
+        gfx::cpu::draw_triangle(canvas, &t, gray);
+        gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(&p0, &p1), white);
+        gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(&p1, &p2), white);
+        gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(&p2, &p0), white);
+    }
 }
 
 impl Game {

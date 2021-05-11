@@ -1,8 +1,12 @@
 use crate::geometry::line_segment::{LineSegment, LineSegment2i};
+use crate::geometry::triangle::Triangle2i;
+use crate::geometry::Point2i;
 use sdl2::pixels::Color;
 use sdl2::rect::Point;
 use sdl2::render::{Canvas, Texture};
 use sdl2::video::Window;
+use sdl2::video::WindowPos::Positioned;
+use std::convert::TryInto;
 use std::mem;
 
 // TODO: Maybe add some trait like Canvas, but for now let's start with something, ie. using SDL
@@ -47,4 +51,14 @@ pub fn draw_line_segment(canvas: &mut Canvas<Window>, line_segment: &LineSegment
     }
 }
 
-pub fn draw_triangle(canvas: &mut Canvas<Window>, line_segment: &LineSegment2i, color: Color) {}
+pub fn draw_triangle(canvas: &mut Canvas<Window>, triangle: &Triangle2i, color: Color) {
+    let (bb_start, bb_end) = triangle.bounding_box();
+
+    for y in bb_start.y()..bb_end.y() + 1 {
+        for x in bb_start.x()..bb_end.x() + 1 {
+            if triangle.contains(&Point2i::new(x, y)) {
+                draw_point(canvas, x, y, color);
+            }
+        }
+    }
+}

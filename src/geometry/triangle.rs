@@ -4,19 +4,23 @@ use crate::math::vector::VecElem;
 use crate::math::Vec3;
 use num::Float;
 
-pub struct Triangle<T: VecElem, const N: usize> {
-    pub points: [Point<T, N>; 3],
+pub struct Triangle<'a, T: VecElem, const N: usize> {
+    pub points: [&'a Point<T, N>; 3],
 }
 
-impl<T: VecElem, const N: usize> Triangle<T, N> {
-    pub fn new(p0: &Point<T, N>, p1: &Point<T, N>, p2: &Point<T, N>) -> Triangle<T, N> {
+impl<'a, T: VecElem, const N: usize> Triangle<'a, T, N> {
+    pub fn new(
+        p0: &'a Point<T, N>,
+        p1: &'a Point<T, N>,
+        p2: &'a Point<T, N>,
+    ) -> Triangle<'a, T, N> {
         Triangle {
-            points: [p0.clone(), p1.clone(), p2.clone()],
+            points: [p0, p1, p2],
         }
     }
 }
 
-impl<T: VecElem> Triangle<T, 3> {
+impl<'a, T: VecElem> Triangle<'a, T, 3> {
     /// # Examples
     ///
     /// ```rust
@@ -24,39 +28,37 @@ impl<T: VecElem> Triangle<T, 3> {
     /// use vekotin::geometry::Point3i;
     /// use vekotin::math::Vec3i;
     ///
-    /// let triangle = Triangle::new(
-    ///   &Point3i::new(0, 0, 0),
-    ///   &Point3i::new(1, 0, 0),
-    ///   &Point3i::new(0, 2, 0)
-    /// );
+    /// let p0 = Point3i::new(0, 0, 0);
+    /// let p1 = Point3i::new(1, 0, 0);
+    /// let p2 = Point3i::new(0, 2, 0);
+    /// let triangle = Triangle::new(&p0, &p1, &p2);
     ///
     /// assert_eq!(triangle.normal(), Vec3i::new(0, 0, 2));
     /// ```
     pub fn normal(&self) -> Vec3<T> {
-        (self.points[1] - self.points[0]).cross(self.points[2] - self.points[0])
+        (*self.points[1] - *self.points[0]).cross(*self.points[2] - *self.points[0])
     }
 }
 
-impl<T: VecElem> Triangle<T, 2> {
+impl<'a, T: VecElem> Triangle<'a, T, 2> {
     /// # Examples
     ///
     /// ```rust
     /// use vekotin::geometry::triangle::*;
     /// use vekotin::geometry::Point2i;
+    /// let p0 = Point2i::new(0, 0);
+    /// let p1 = Point2i::new(0, 2);
+    /// let p2 = Point2i::new(1, 0);
     ///
-    /// let triangle = Triangle::new(
-    ///   &Point2i::new(0, 0),
-    ///   &Point2i::new(0, 2),
-    ///   &Point2i::new(1, 0)
-    /// );
+    /// let triangle = Triangle::new(&p0, &p1, &p2);
     ///
     /// assert_eq!(triangle.signed_area_doubled(), 2);
     ///
-    /// let triangle = Triangle::new(
-    ///   &Point2i::new(0, 0),
-    ///   &Point2i::new(1, 0),
-    ///   &Point2i::new(0, 2)
-    /// );
+    /// let p0 = Point2i::new(0, 0);
+    /// let p1 = Point2i::new(1, 0);
+    /// let p2 = Point2i::new(0, 2);
+    ///
+    /// let triangle = Triangle::new(&p0, &p1, &p2);
     ///
     /// assert_eq!(triangle.signed_area_doubled(), -2);
     /// ```
@@ -66,7 +68,7 @@ impl<T: VecElem> Triangle<T, 2> {
     }
 }
 
-impl<T: VecElem + PartialOrd> Triangle<T, 2> {
+impl<'a, T: VecElem + PartialOrd> Triangle<'a, T, 2> {
     /// # Examples
     ///
     /// ```rust
@@ -136,7 +138,7 @@ impl<T: VecElem + PartialOrd> Triangle<T, 2> {
     }
 }
 
-impl<T: VecElem + Ord> Triangle<T, 2> {
+impl<'a, T: VecElem + Ord> Triangle2<'a, T> {
     pub fn bounding_box(&self) -> (Point2<T>, Point2<T>) {
         let min_x = self.points.iter().map(|&p| p.x()).min().unwrap();
         let min_y = self.points.iter().map(|&p| p.y()).min().unwrap();
@@ -147,10 +149,10 @@ impl<T: VecElem + Ord> Triangle<T, 2> {
     }
 }
 
-pub type Triangle2<T> = Triangle<T, 2>;
-pub type Triangle2f = Triangle2<f32>;
-pub type Triangle2i = Triangle2<i32>;
+pub type Triangle2<'a, T> = Triangle<'a, T, 2>;
+pub type Triangle2f<'a> = Triangle2<'a, f32>;
+pub type Triangle2i<'a> = Triangle2<'a, i32>;
 
-pub type Triangle3<T> = Triangle<T, 3>;
-pub type Triangle3f = Triangle3<f32>;
-pub type Triangle3i = Triangle3<i32>;
+pub type Triangle3<'a, T> = Triangle<'a, T, 3>;
+pub type Triangle3f<'a> = Triangle3<'a, f32>;
+pub type Triangle3i<'a> = Triangle3<'a, i32>;
