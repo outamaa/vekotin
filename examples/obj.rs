@@ -1,7 +1,7 @@
-use anyhow::{bail, Result};
+use anyhow::Result;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use sdl2::pixels::{Color, PixelFormatEnum};
+use sdl2::pixels::Color;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 use vekotin::geometry::line_segment::LineSegment2i;
@@ -17,10 +17,10 @@ pub struct Game {
 
 fn draw_triangle(canvas: &mut Canvas<Window>, obj: &Obj, i: usize) {
     let v_indices = &obj.vertex_index_triples[i];
-    let white = Color::RGBA(255, 255, 255, 255);
     let viewport = canvas.viewport();
     let w = viewport.width();
     let h = viewport.height();
+
     let v0 = obj.vertices[v_indices.0 as usize];
     // Project the 3D points onto the canvas, orthographic projection
     let p0 = Point2i::new(
@@ -42,13 +42,16 @@ fn draw_triangle(canvas: &mut Canvas<Window>, obj: &Obj, i: usize) {
         .unit();
 
     let t = Triangle2i::new(&p0, &p1, &p2);
+
+    let white = Color::RGBA(255, 255, 255, 255);
+
     if normal.z() >= 0.0 {
         let intensity = (normal.z() * 255.0) as u8;
         let c = Color::RGBA(intensity, intensity, intensity, 255);
         gfx::cpu::draw_triangle(canvas, &t, c);
-        //gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(&p0, &p1), white);
-        //gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(&p1, &p2), white);
-        //gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(&p2, &p0), white);
+        gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(&p0, &p1), white);
+        gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(&p1, &p2), white);
+        gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(&p2, &p0), white);
     }
 }
 

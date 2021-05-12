@@ -1,10 +1,9 @@
 use crate::math::{Vec2f, Vec3f};
-use anyhow::{anyhow, bail, Result};
+use anyhow::{anyhow, Result};
 use std::fs::File;
 use std::io;
 use std::io::BufRead;
 use std::path::Path;
-use std::str::SplitWhitespace;
 
 //
 // TODO: For now, no support for e.g. 4D coordinates for vertices or 3D textures
@@ -120,7 +119,7 @@ fn parse_vec3f<'a, T: Iterator<Item = &'a str>>(mut elements: T) -> Result<Vec3f
 type FaceIndexTriple = (u32, u32, u32);
 
 fn parse_face<'a, T: Iterator<Item = &'a str>>(
-    mut elements: T, // ["1/2/3", "2/3/4", ...]
+    elements: T, // ["1/2/3", "2/3/4", ...]
 ) -> Result<Vec<FaceIndexTriple>> {
     let triples = elements
         .map(|s| s.split('/'))

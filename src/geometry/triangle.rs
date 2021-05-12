@@ -1,8 +1,7 @@
 use crate::geometry::point::Point;
-use crate::geometry::{Point2, Point2f, Point3, Point3f};
+use crate::geometry::{Point2, Point3, Point3f};
 use crate::math::vector::VecElem;
 use crate::math::Vec3;
-use num::Float;
 
 pub struct Triangle<'a, T: VecElem, const N: usize> {
     pub points: [&'a Point<T, N>; 3],
@@ -63,8 +62,8 @@ impl<'a, T: VecElem> Triangle<'a, T, 2> {
     /// assert_eq!(triangle.signed_area_doubled(), -2);
     /// ```
     pub fn signed_area_doubled(&self) -> T {
-        ((self.points[2].x() - self.points[0].x()) * (self.points[1].y() - self.points[0].y())
-            - (self.points[1].x() - self.points[0].x()) * (self.points[2].y() - self.points[0].y()))
+        (self.points[2].x() - self.points[0].x()) * (self.points[1].y() - self.points[0].y())
+            - (self.points[1].x() - self.points[0].x()) * (self.points[2].y() - self.points[0].y())
     }
 }
 

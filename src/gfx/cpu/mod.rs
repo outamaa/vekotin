@@ -1,18 +1,16 @@
-use crate::geometry::line_segment::{LineSegment, LineSegment2i};
+use crate::geometry::line_segment::LineSegment2i;
 use crate::geometry::triangle::Triangle2i;
 use crate::geometry::Point2i;
 use sdl2::pixels::Color;
 use sdl2::rect::Point;
-use sdl2::render::{Canvas, Texture};
+use sdl2::render::Canvas;
 use sdl2::video::Window;
-use sdl2::video::WindowPos::Positioned;
-use std::convert::TryInto;
 use std::mem;
 
 // TODO: Maybe add some trait like Canvas, but for now let's start with something, ie. using SDL
 pub fn draw_point(canvas: &mut Canvas<Window>, x: i32, y: i32, color: Color) {
     canvas.set_draw_color(color);
-    canvas.draw_point(Point::new(x, y));
+    canvas.draw_point(Point::new(x, y)).expect("draw_point");
 }
 
 // Bresenham's line drawing algorithm, ported from ssloy/tinyrenderer
