@@ -18,7 +18,6 @@ pub struct Game {
 fn draw_triangle(canvas: &mut Canvas<Window>, obj: &Obj, i: usize) {
     let v_indices = &obj.vertex_index_triples[i];
     let white = Color::RGBA(255, 255, 255, 255);
-    let gray = Color::RGBA(128, 128, 128, 255);
     let viewport = canvas.viewport();
     let w = viewport.width();
     let h = viewport.height();
@@ -38,13 +37,18 @@ fn draw_triangle(canvas: &mut Canvas<Window>, obj: &Obj, i: usize) {
         ((v2.x() + 1.0) * w as f32 / 2.0) as i32,
         h as i32 - ((v2.y() + 1.0) * h as f32 / 2.0) as i32,
     );
-    let normal = Triangle3f::new(&v0.into(), &v1.into(), &v2.into()).normal();
+    let normal = Triangle3f::new(&v0.into(), &v1.into(), &v2.into())
+        .normal()
+        .unit();
+
     let t = Triangle2i::new(&p0, &p1, &p2);
     if normal.z() >= 0.0 {
-        gfx::cpu::draw_triangle(canvas, &t, gray);
-        gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(&p0, &p1), white);
-        gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(&p1, &p2), white);
-        gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(&p2, &p0), white);
+        let intensity = (normal.z() * 255.0) as u8;
+        let c = Color::RGBA(intensity, intensity, intensity, 255);
+        gfx::cpu::draw_triangle(canvas, &t, c);
+        //gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(&p0, &p1), white);
+        //gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(&p1, &p2), white);
+        //gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(&p2, &p0), white);
     }
 }
 

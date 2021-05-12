@@ -92,19 +92,20 @@ impl<'a, T: VecElem + PartialOrd> Triangle<'a, T, 2> {
             return None;
         }
         let a2 = a2.as_f32();
-        let x0 = self.points[0].x().as_f32();
-        let x1 = self.points[1].x().as_f32();
-        let x2 = self.points[2].x().as_f32();
-        let y0 = self.points[0].y().as_f32();
-        let y1 = self.points[1].y().as_f32();
-        let y2 = self.points[2].y().as_f32();
-        let p_x = p.x().as_f32();
-        let p_y = p.y().as_f32();
+        let x0 = self.points[0].x();
+        let x1 = self.points[1].x();
+        let x2 = self.points[2].x();
+        let y0 = self.points[0].y();
+        let y1 = self.points[1].y();
+        let y2 = self.points[2].y();
+        let p_x = p.x();
+        let p_y = p.y();
 
-        let u = ((y0 - y2) / a2) * p_x + ((x2 - x0) / a2) * p_y + (x0 * y2 - x2 * y0) / a2;
-        let v = ((y1 - y0) / a2) * p_x + ((x0 - x1) / a2) * p_y + (x1 * y0 - x0 * y1) / a2;
+        // Work as long as possible without casting to f32
+        let u = ((y0 - y2) * p_x + (x2 - x0) * p_y + (x0 * y2 - x2 * y0)).as_f32();
+        let v = ((y1 - y0) * p_x + (x0 - x1) * p_y + (x1 * y0 - x0 * y1)).as_f32();
 
-        Some(Point3::new(1.0 - u - v, u, v))
+        Some(Point3::new(1.0 - (u + v) / a2, u / a2, v / a2))
     }
 
     /// # Examples
