@@ -176,6 +176,19 @@ impl<T: VecElem, const N: usize> Vector<T, N> {
     pub fn length_squared(&self) -> T {
         self.dot(*self)
     }
+
+    pub fn length(&self) -> f32 {
+        self.length_squared().as_f32().sqrt()
+    }
+
+    pub fn as_f32(&self) -> Vector<f32, N> {
+        self.iter().map(|x| x.as_f32()).collect()
+    }
+
+    pub fn unit(&self) -> Vector<f32, N> {
+        let length_inv = 1.0 / self.length();
+        self.iter().map(|x| x.as_f32() * length_inv).collect()
+    }
 }
 
 impl<T: VecElem> Vec3<T> {
@@ -241,16 +254,6 @@ impl<T: VecElem> Vec3<T> {
 
     pub fn vector_triple_product(a: Vec3<T>, b: Vec3<T>, c: Vec3<T>) -> Vec3<T> {
         a.cross(b.cross(c))
-    }
-}
-
-impl<T: VecElem + Float> Vec3<T> {
-    pub fn length(&self) -> T {
-        self.length_squared().sqrt()
-    }
-
-    pub fn unit(&self) -> Vec3<T> {
-        *self / self.length()
     }
 }
 

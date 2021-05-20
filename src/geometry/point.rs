@@ -1,6 +1,6 @@
 use crate::math::vector::{VecElem, Vector};
 use crate::math::{Vec2, Vec3};
-use std::ops::{Add, Sub};
+use std::ops::{Add, Index, IndexMut, Sub};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub struct Point<T: VecElem, const N: usize>(Vector<T, N>);
@@ -16,6 +16,12 @@ pub type Point3i = Point3<i32>;
 pub type Point4<T> = Point<T, 4>;
 pub type Point4f = Point4<f32>;
 pub type Point4i = Point4<i32>;
+
+impl<T: VecElem, const N: usize> Point<T, N> {
+    pub fn as_vector(&self) -> &Vector<T, N> {
+        &self.0
+    }
+}
 
 impl<T: VecElem> Point2<T> {
     pub fn new(x: T, y: T) -> Self {
@@ -82,5 +88,23 @@ impl<T: VecElem, const N: usize> From<Vector<T, N>> for Point<T, N> {
 impl<T: VecElem, const N: usize> Into<Vector<T, N>> for Point<T, N> {
     fn into(self) -> Vector<T, N> {
         self.0
+    }
+}
+
+//
+// Indexing
+//
+
+impl<T: VecElem, const N: usize> Index<usize> for Point<T, N> {
+    type Output = T;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        &self.0[index]
+    }
+}
+
+impl<T: VecElem, const N: usize> IndexMut<usize> for Point<T, N> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        &mut self.0[index]
     }
 }

@@ -18,46 +18,6 @@ pub struct Game {
     angle: f32,
 }
 
-fn draw_triangle(canvas: &mut Canvas<Window>, obj: &Obj, i: usize, xform: &Matrix3f) {
-    let v_indices = &obj.vertex_index_triples[i];
-    let viewport = canvas.viewport();
-    let w = viewport.width();
-    let h = viewport.height();
-
-    let v0 = *xform * obj.vertices[v_indices.0 as usize];
-    // Project the 3D points onto the canvas, orthographic projection
-    let p0 = Point2i::new(
-        ((v0.x() + 1.0) * w as f32 / 2.0) as i32,
-        h as i32 - ((v0.y() + 1.0) * h as f32 / 2.0) as i32,
-    );
-    let v1 = *xform * obj.vertices[v_indices.1 as usize];
-    let p1 = Point2i::new(
-        ((v1.x() + 1.0) * w as f32 / 2.0) as i32,
-        h as i32 - ((v1.y() + 1.0) * h as f32 / 2.0) as i32,
-    );
-    let v2 = *xform * obj.vertices[v_indices.2 as usize];
-    let p2 = Point2i::new(
-        ((v2.x() + 1.0) * w as f32 / 2.0) as i32,
-        h as i32 - ((v2.y() + 1.0) * h as f32 / 2.0) as i32,
-    );
-    let normal = Triangle3f::new(&v0.into(), &v1.into(), &v2.into())
-        .normal()
-        .unit();
-
-    let t = Triangle2i::new(&p0, &p1, &p2);
-
-    let white = Color::RGBA(255, 255, 255, 255);
-
-    if normal.z() >= 0.0 {
-        let intensity = (normal.z() * 255.0) as u8;
-        let c = Color::RGBA(intensity, intensity, intensity, 255);
-        gfx::cpu::draw_triangle(canvas, &t, c);
-        // gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(&p0, &p1), white);
-        // gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(&p1, &p2), white);
-        // gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(&p2, &p0), white);
-    }
-}
-
 impl Game {
     pub fn new() -> Result<Self> {
         let sdl_context = sdl2::init().expect("failed to init SDL");
@@ -74,7 +34,6 @@ impl Game {
             .into_canvas()
             .build()
             .expect("failed to build window's canvas");
-
 
         let event_pump = sdl_context.event_pump().unwrap();
 
@@ -103,10 +62,10 @@ impl emscripten_main_loop::MainLoop for Game {
         }
         self.canvas.set_draw_color(Color::RGB(0, 0, 0));
         self.canvas.clear();
+
         let rot = Matrix3f::rotation_y(self.angle);
-        for i in 0..self.obj.vertex_index_triples.len() {
-            draw_triangle(&mut self.canvas, &self.obj, i, &rot);
-        }
+        gfx::cpu::draw_obj(&mut self.canvas, &self.obj, &rot);
+
         self.canvas.present();
 
         self.angle += 0.05;

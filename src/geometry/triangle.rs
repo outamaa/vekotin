@@ -2,6 +2,7 @@ use crate::geometry::point::Point;
 use crate::geometry::{Point2, Point3, Point3f};
 use crate::math::vector::VecElem;
 use crate::math::Vec3;
+use num::Float;
 
 pub struct Triangle<'a, T: VecElem, const N: usize> {
     pub points: [&'a Point<T, N>; 3],
@@ -138,14 +139,49 @@ impl<'a, T: VecElem + PartialOrd> Triangle<'a, T, 2> {
     }
 }
 
-impl<'a, T: VecElem + Ord> Triangle2<'a, T> {
-    pub fn bounding_box(&self) -> (Point2<T>, Point2<T>) {
-        let min_x = self.points.iter().map(|&p| p.x()).min().unwrap();
-        let min_y = self.points.iter().map(|&p| p.y()).min().unwrap();
-        let max_x = self.points.iter().map(|&p| p.x()).max().unwrap();
-        let max_y = self.points.iter().map(|&p| p.y()).max().unwrap();
+impl<'a, T: VecElem + PartialOrd> Triangle<'a, T, 3> {
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vekotin::geometry::triangle::*;
+    /// use vekotin::geometry::{Point3i, Point3f};
+    /// use vekotin::math::Vec3i;
+    ///
+    /// let p0 = Point3i::new(0, 0, 0);
+    /// let p1 = Point3i::new(2, 0, 0);
+    /// let p2 = Point3i::new(0, 2, 0);
+    ///
+    /// let triangle = Triangle::new(&p0, &p1, &p2);
+    ///
+    /// assert_eq!(triangle.barycentric_coordinates(&p0), Some(Point3f::new(1.0, 0.0, 0.0)));
+    /// assert_eq!(triangle.barycentric_coordinates(&p1), Some(Point3f::new(0.0, 1.0, 0.0)));
+    /// assert_eq!(triangle.barycentric_coordinates(&p2), Some(Point3f::new(0.0, 0.0, 1.0)));
+    /// ```
+    pub fn barycentric_coordinates(&self, p: &Point3<T>) -> Option<Point3f> {
+        let n = self.normal();
+        let a2 = n.length();
+        let n = n.as_f32() / a2;
+        if a2.abs() < 0.0001 {
+            // Degenerate triangle
+            return None;
+        }
 
-        (Point2::new(min_x, min_y), Point2::new(max_x, max_y))
+        let p0 = *self.points[0];
+        let p1 = *self.points[1];
+        let p2 = *self.points[2];
+
+        let u = (p2 - p1).as_f32().cross((*p - p1).as_f32()).dot(n);
+        let v = (p0 - p2).as_f32().cross((*p - p2).as_f32()).dot(n);
+
+        Some(Point3::new(u / a2, v / a2, 1.0 - (u + v) / a2))
+    }
+
+    pub fn contains(&self, p: &Point3<T>) -> bool {
+        let bary = self.barycentric_coordinates(p);
+        match bary {
+            None => false,
+            Some(p) => p.x() >= 0.0 && p.y() >= 0.0 && p.z() >= 0.0,
+        }
     }
 }
 
