@@ -185,7 +185,6 @@ impl<T: Float + VecElem + Mul<Matrix3<T>, Output = Matrix3<T>>> Matrix3<T> {
             + sin_theta * Matrix3::cross(a)
     }
 
-    /// # Examples
     ///
     /// ```rust
     /// use vekotin::math::matrix::*;
