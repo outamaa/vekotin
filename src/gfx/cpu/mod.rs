@@ -82,6 +82,7 @@ impl ZBuffer {
 pub fn draw_triangle(
     canvas: &mut Canvas<Window>,
     triangle: &Triangle3f,
+    normal_triangle: &Triangle3f,
     z_buffer: &mut ZBuffer,
     color: Color,
 ) {
@@ -110,10 +111,10 @@ pub fn draw_triangle(
         .max_by(|a, b| a.partial_cmp(b).unwrap_or(Equal))
         .unwrap();
 
-    let min_x = cmp::max(0, min_x.floor() as i32);
-    let min_y = cmp::max(0, min_y.floor() as i32);
-    let max_x = cmp::min(z_buffer.width as i32, max_x.ceil() as i32);
-    let max_y = cmp::min(z_buffer.height as i32, max_y.ceil() as i32);
+    let min_x = cmp::max(0, min_x.floor() as i32 - 1);
+    let min_y = cmp::max(0, min_y.floor() as i32 - 1);
+    let max_x = cmp::min(z_buffer.width as i32, max_x.ceil() as i32 + 1);
+    let max_y = cmp::min(z_buffer.height as i32, max_y.ceil() as i32 + 1);
 
     for y in min_y..max_y {
         for x in min_x..max_x {
@@ -121,7 +122,6 @@ pub fn draw_triangle(
             let y_f = y as f32;
             let mut p = Point3f::new(x_f, y_f, 0.0);
 
-            let mut p_z = 0.0;
             match triangle.barycentric_coordinates(&p) {
                 None => {
                     continue;
@@ -130,16 +130,19 @@ pub fn draw_triangle(
                     if b.x() < 0.0 || b.y() < 0.0 || b.z() < 0.0 {
                         continue;
                     } else {
-                        for i in 0..3 {
-                            p_z += triangle.points[i].z() * b[i];
+                        let p_z = triangle.interpolate(b).z();
+                        let n_z = normal_triangle.interpolate(b).z();
+                        let c = Color::RGB(
+                            (color.r as f32 * n_z) as u8,
+                            (color.g as f32 * n_z) as u8,
+                            (color.b as f32 * n_z) as u8,
+                        );
+                        if z_buffer.get(x as u32, y as u32) < p_z {
+                            z_buffer.set(x as u32, y as u32, p_z);
+                            draw_point(canvas, x, y, c);
                         }
                     }
                 }
-            }
-
-            if z_buffer.get(x as u32, y as u32) < p_z {
-                z_buffer.set(x as u32, y as u32, p_z);
-                draw_point(canvas, x, y, color);
             }
         }
     }
@@ -174,21 +177,18 @@ pub fn draw_obj(canvas: &mut Canvas<Window>, obj: &Obj, xform: &Matrix3f) {
             h as f32 - ((v2.y() + 1.0) * h as f32 / 2.0),
             v2.z(),
         );
-        let normal = Triangle3f::new(&v0.into(), &v1.into(), &v2.into())
-            .normal()
-            .unit();
+        let normal = Triangle3f::new(&v0.into(), &v1.into(), &v2.into()).normal();
 
-        let t = Triangle3f::new(&p0, &p1, &p2);
+        let f = Triangle3f::new(&p0, &p1, &p2);
 
         let white = Color::RGBA(255, 255, 255, 255);
 
         if normal.z() >= 0.0 {
-            let intensity = (normal.z() * 255.0) as u8;
-            let c = Color::RGBA(intensity, intensity, intensity, 255);
-            draw_triangle(canvas, &t, &mut z_buffer, c);
-            // gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(&p0, &p1), white);
-            // gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(&p1, &p2), white);
-            // gfx::cpu::draw_line_segment(canvas, &LineSegment2i::new(&p2, &p0), white);
+            let n0 = (*xform * obj.normals[v_indices.0 as usize]).into();
+            let n1 = (*xform * obj.normals[v_indices.1 as usize]).into();
+            let n2 = (*xform * obj.normals[v_indices.2 as usize]).into();
+            let n = Triangle3f::new(&n0, &n1, &n2);
+            draw_triangle(canvas, &f, &n, &mut z_buffer, white);
         }
     }
 }

@@ -27,7 +27,7 @@ impl Game {
 
         // We create a window.
         let window = video_subsystem
-            .window("sdl2 demo", 800, 600)
+            .window("sdl2 demo", 800, 800)
             .build()
             .expect("failed to build window");
         let mut canvas: Canvas<Window> = window
@@ -69,7 +69,7 @@ impl emscripten_main_loop::MainLoop for Game {
         self.canvas.present();
 
         self.angle += 0.05;
-        // ::std::thread::sleep(::std::time::Duration::new(0, 1_000_000_000u32 / 60));
+        ::std::thread::sleep(::std::time::Duration::new(0, 1_000_000_000u32 / 30));
         emscripten_main_loop::MainLoopEvent::Continue
     }
 }

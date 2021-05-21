@@ -1,7 +1,7 @@
 use crate::geometry::point::Point;
-use crate::geometry::{Point2, Point3, Point3f};
-use crate::math::vector::VecElem;
-use crate::math::Vec3;
+use crate::geometry::{Point2, Point2f, Point3, Point3f};
+use crate::math::vector::{VecElem, Zero};
+use crate::math::{Vec3, Vec3f, Vector};
 use num::Float;
 
 pub struct Triangle<'a, T: VecElem, const N: usize> {
@@ -137,6 +137,14 @@ impl<'a, T: VecElem + PartialOrd> Triangle<'a, T, 2> {
             Some(p) => p.x() >= 0.0 && p.y() >= 0.0 && p.z() >= 0.0,
         }
     }
+
+    pub fn interpolate(&self, bary: Point3f) -> Point2f {
+        let mut v = Vector::zero();
+        for i in 0..3 {
+            v = v + self.points[i].as_vector().as_f32() * bary[i];
+        }
+        v.into()
+    }
 }
 
 impl<'a, T: VecElem + PartialOrd> Triangle<'a, T, 3> {
@@ -182,6 +190,14 @@ impl<'a, T: VecElem + PartialOrd> Triangle<'a, T, 3> {
             None => false,
             Some(p) => p.x() >= 0.0 && p.y() >= 0.0 && p.z() >= 0.0,
         }
+    }
+
+    pub fn interpolate(&self, bary: Point3f) -> Point3f {
+        let mut v = Vector::zero();
+        for i in 0..3 {
+            v = v + self.points[i].as_vector().as_f32() * bary[i];
+        }
+        v.into()
     }
 }
 
