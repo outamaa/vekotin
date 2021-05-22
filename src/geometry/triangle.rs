@@ -166,9 +166,9 @@ impl<'a, T: VecElem + PartialOrd> Triangle<'a, T, 3> {
     /// ```
     pub fn barycentric_coordinates(&self, p: &Point3<T>) -> Option<Point3f> {
         let n = self.normal();
-        let a2 = n.length();
-        let n = n.as_f32() / a2;
-        if a2.abs() < 0.0001 {
+        let a2 = n.length_squared();
+
+        if a2.as_f32() < 0.0001 {
             // Degenerate triangle
             return None;
         }
@@ -177,10 +177,14 @@ impl<'a, T: VecElem + PartialOrd> Triangle<'a, T, 3> {
         let p1 = *self.points[1];
         let p2 = *self.points[2];
 
-        let u = (p2 - p1).as_f32().cross((*p - p1).as_f32()).dot(n);
-        let v = (p0 - p2).as_f32().cross((*p - p2).as_f32()).dot(n);
+        let u = (p2 - p1).cross(*p - p1).dot(n);
+        let v = (p0 - p2).cross(*p - p2).dot(n);
 
-        Some(Point3::new(u / a2, v / a2, 1.0 - (u + v) / a2))
+        Some(Point3::new(
+            (u / a2).as_f32(),
+            (v / a2).as_f32(),
+            (T::one() - (u + v) / a2).as_f32(),
+        ))
     }
 
     pub fn contains(&self, p: &Point3<T>) -> bool {
