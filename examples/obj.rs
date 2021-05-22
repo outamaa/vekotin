@@ -4,17 +4,16 @@ use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
-use vekotin::geometry::line_segment::LineSegment2i;
-use vekotin::geometry::triangle::{Triangle2i, Triangle3f};
-use vekotin::geometry::Point2i;
 use vekotin::gfx;
 use vekotin::loader::obj::Obj;
+use vekotin::loader::png::Png;
 use vekotin::math::Matrix3f;
 
 pub struct Game {
     event_pump: sdl2::EventPump,
     canvas: Canvas<Window>,
     obj: Obj,
+    texture: Png,
     angle: f32,
 }
 
@@ -24,13 +23,13 @@ impl Game {
         let video_subsystem = sdl_context.video().expect("failed to get video context");
 
         let obj = Obj::from_file("assets/head.obj")?;
-
+        let texture = Png::from_file("assets/head_diffuse.png")?;
         // We create a window.
         let window = video_subsystem
             .window("sdl2 demo", 800, 800)
             .build()
             .expect("failed to build window");
-        let mut canvas: Canvas<Window> = window
+        let canvas: Canvas<Window> = window
             .into_canvas()
             .build()
             .expect("failed to build window's canvas");
@@ -41,6 +40,7 @@ impl Game {
             event_pump,
             canvas,
             obj,
+            texture,
             angle: 0.0,
         })
     }
@@ -64,12 +64,12 @@ impl emscripten_main_loop::MainLoop for Game {
         self.canvas.clear();
 
         let rot = Matrix3f::rotation_y(self.angle);
-        gfx::cpu::draw_obj(&mut self.canvas, &self.obj, &rot);
+        gfx::cpu::draw_obj(&mut self.canvas, &self.obj, &self.texture, &rot);
 
         self.canvas.present();
 
         self.angle += 0.05;
-        ::std::thread::sleep(::std::time::Duration::new(0, 1_000_000_000u32 / 30));
+        // ::std::thread::sleep(::std::time::Duration::new(0, 1_000_000_000u32 / 30));
         emscripten_main_loop::MainLoopEvent::Continue
     }
 }

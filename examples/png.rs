@@ -8,13 +8,14 @@ use vekotin::geometry::line_segment::{LineSegment, LineSegment2i};
 use vekotin::geometry::Point2i;
 use vekotin::gfx;
 use vekotin::loader::png;
+use vekotin::loader::png::Png;
 
 pub struct Game {
     event_pump: sdl2::EventPump,
     _canvas: Canvas<Window>,
 }
 
-fn pixel_format(image: &png::Png) -> Result<PixelFormatEnum> {
+fn pixel_format(image: &Png) -> Result<PixelFormatEnum> {
     use png::BitDepth::*;
     use png::ColorType::*;
     match (&image.bit_depth, &image.color_type) {
@@ -29,7 +30,7 @@ impl Game {
         let sdl_context = sdl2::init().expect("failed to init SDL");
         let video_subsystem = sdl_context.video().expect("failed to get video context");
 
-        let img = png::from_file("assets/test.png")?;
+        let img = Png::from_file("assets/head_diffuse.png")?;
         println!("{}", img.bytes_per_pixel);
         // We create a window.
         let window = video_subsystem
@@ -51,6 +52,8 @@ impl Game {
         texture.set_blend_mode(BlendMode::Blend);
         texture.update(None, &img.data, (img.bytes_per_pixel * img.width) as usize)?;
 
+        canvas.set_draw_color(Color::RGB(0, 0, 0));
+        canvas.clear();
         canvas.copy(&texture, None, None).unwrap();
         canvas.present();
 

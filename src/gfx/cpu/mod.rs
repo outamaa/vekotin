@@ -1,7 +1,8 @@
 use crate::geometry::line_segment::LineSegment2i;
-use crate::geometry::triangle::{Triangle2i, Triangle3f};
+use crate::geometry::triangle::{Triangle2f, Triangle3f};
 use crate::geometry::{Point2i, Point3f};
 use crate::loader::obj::Obj;
+use crate::loader::png::Png;
 use crate::math::Matrix3f;
 use sdl2::pixels::Color;
 use sdl2::rect::Point;
@@ -79,10 +80,28 @@ impl ZBuffer {
     }
 }
 
+fn interpolate_color_from_texture(
+    texture: &Png,
+    texture_triangle: &Triangle2f,
+    bary: &Point3f,
+) -> Color {
+    let coords = texture_triangle.interpolate(bary);
+    let x = (coords.x() * texture.width as f32).floor() as u32;
+    let y = texture.height - (coords.y() * texture.height as f32).floor() as u32;
+    if x >= texture.width || y >= texture.height {
+        println!("Invalid x or y: {} {}", x, y);
+        return Color::RGB(255, 0, 0);
+    }
+    let i = (texture.bytes_per_pixel as u32 * (texture.width * y + x)) as usize;
+    Color::RGB(texture.data[i], texture.data[i + 1], texture.data[i + 2])
+}
+
 pub fn draw_triangle(
     canvas: &mut Canvas<Window>,
     triangle: &Triangle3f,
     normal_triangle: &Triangle3f,
+    texture_triangle: &Triangle2f,
+    texture: &Png,
     z_buffer: &mut ZBuffer,
     color: Color,
 ) {
@@ -120,7 +139,7 @@ pub fn draw_triangle(
         for x in min_x..max_x {
             let x_f = x as f32;
             let y_f = y as f32;
-            let mut p = Point3f::new(x_f, y_f, 0.0);
+            let p = Point3f::new(x_f, y_f, 0.0);
 
             match triangle.barycentric_coordinates(&p) {
                 None => {
@@ -130,15 +149,16 @@ pub fn draw_triangle(
                     if b.x() < 0.0 || b.y() < 0.0 || b.z() < 0.0 {
                         continue;
                     } else {
-                        let p_z = triangle.interpolate(b).z();
-                        let n_z = normal_triangle.interpolate(b).z();
+                        let p = triangle.interpolate(&b);
+                        let n_z = normal_triangle.interpolate(&b).z();
+                        let c = interpolate_color_from_texture(texture, texture_triangle, &b);
                         let c = Color::RGB(
-                            (color.r as f32 * n_z) as u8,
-                            (color.g as f32 * n_z) as u8,
-                            (color.b as f32 * n_z) as u8,
+                            (c.r as f32 * n_z) as u8,
+                            (c.g as f32 * n_z) as u8,
+                            (c.b as f32 * n_z) as u8,
                         );
-                        if z_buffer.get(x as u32, y as u32) < p_z {
-                            z_buffer.set(x as u32, y as u32, p_z);
+                        if z_buffer.get(x as u32, y as u32) < p.z() {
+                            z_buffer.set(x as u32, y as u32, p.z());
                             draw_point(canvas, x, y, c);
                         }
                     }
@@ -148,7 +168,7 @@ pub fn draw_triangle(
     }
 }
 
-pub fn draw_obj(canvas: &mut Canvas<Window>, obj: &Obj, xform: &Matrix3f) {
+pub fn draw_obj(canvas: &mut Canvas<Window>, obj: &Obj, texture: &Png, xform: &Matrix3f) {
     let viewport = canvas.viewport();
     let w = viewport.width();
     let h = viewport.height();
@@ -157,6 +177,8 @@ pub fn draw_obj(canvas: &mut Canvas<Window>, obj: &Obj, xform: &Matrix3f) {
 
     for i in 0..obj.vertex_index_triples.len() {
         let v_indices = &obj.vertex_index_triples[i];
+        let t_indices = &obj.uv_index_triples[i];
+        let n_indices = &obj.normal_index_triples[i];
 
         let v0 = *xform * obj.vertices[v_indices.0 as usize];
         // Project the 3D points onto the canvas, orthographic projection
@@ -177,18 +199,22 @@ pub fn draw_obj(canvas: &mut Canvas<Window>, obj: &Obj, xform: &Matrix3f) {
             h as f32 - ((v2.y() + 1.0) * h as f32 / 2.0),
             v2.z(),
         );
-        let normal = Triangle3f::new(&v0.into(), &v1.into(), &v2.into()).normal();
 
         let f = Triangle3f::new(&p0, &p1, &p2);
 
         let white = Color::RGBA(255, 255, 255, 255);
 
-        if normal.z() >= 0.0 {
-            let n0 = (*xform * obj.normals[v_indices.0 as usize]).into();
-            let n1 = (*xform * obj.normals[v_indices.1 as usize]).into();
-            let n2 = (*xform * obj.normals[v_indices.2 as usize]).into();
+        if f.normal().z() <= 0.0 {
+            let n0 = (*xform * obj.normals[n_indices.0 as usize]).into();
+            let n1 = (*xform * obj.normals[n_indices.1 as usize]).into();
+            let n2 = (*xform * obj.normals[n_indices.2 as usize]).into();
             let n = Triangle3f::new(&n0, &n1, &n2);
-            draw_triangle(canvas, &f, &n, &mut z_buffer, white);
+
+            let t0 = obj.uvs[t_indices.0 as usize].into();
+            let t1 = obj.uvs[t_indices.1 as usize].into();
+            let t2 = obj.uvs[t_indices.2 as usize].into();
+            let t = Triangle2f::new(&t0, &t1, &t2);
+            draw_triangle(canvas, &f, &n, &t, texture, &mut z_buffer, white);
         }
     }
 }
