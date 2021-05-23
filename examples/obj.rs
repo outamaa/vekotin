@@ -15,6 +15,7 @@ pub struct Game {
     obj: Obj,
     texture: Png,
     angle: f32,
+    rotating: bool,
 }
 
 impl Game {
@@ -42,6 +43,7 @@ impl Game {
             obj,
             texture,
             angle: 0.0,
+            rotating: true,
         })
     }
 }
@@ -57,6 +59,12 @@ impl emscripten_main_loop::MainLoop for Game {
                 } => {
                     return emscripten_main_loop::MainLoopEvent::Terminate;
                 }
+                Event::KeyUp {
+                    keycode: Some(Keycode::Space),
+                    ..
+                } => {
+                    self.rotating = !self.rotating;
+                }
                 _ => {}
             }
         }
@@ -68,7 +76,9 @@ impl emscripten_main_loop::MainLoop for Game {
 
         self.canvas.present();
 
-        self.angle += 0.05;
+        if self.rotating {
+            self.angle += 0.1;
+        }
         // ::std::thread::sleep(::std::time::Duration::new(0, 1_000_000_000u32 / 30));
         emscripten_main_loop::MainLoopEvent::Continue
     }
