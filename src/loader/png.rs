@@ -475,7 +475,8 @@ fn process_chunk<R: Read>(
         ChunkType::PLTE => bail!("Can't handle PNGs with palette yet!"),
         ChunkType::IHDR => bail!("Encountered a second IHDR chunk"),
         _ => {
-            skip_bytes(&mut reader.get_mut(), chunk_length)?;
+            println!("Skipping {:?}, {} bytes", chunk_type, chunk_length);
+            skip_bytes(&mut reader, chunk_length)?;
         }
     }
     check_crc(&mut reader)?;
@@ -502,7 +503,7 @@ fn check_crc<R: Read>(reader: &mut DigestReader<R, Crc32>) -> Result<()> {
     let crc_from_reader = reader.digest();
     let crc = read_u32(reader)?;
     if crc != crc_from_reader {
-        // bail!("Invalid CRC, {} != {}", crc, crc_from_reader);
+        bail!("Invalid CRC, {} != {}", crc, crc_from_reader);
     }
     Ok(())
 }

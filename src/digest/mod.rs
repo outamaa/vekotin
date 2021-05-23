@@ -132,6 +132,7 @@ impl<R: Read, D: Digest> Read for DigestReader<R, D> {
         for b in buf.iter().take(n_read) {
             self.digest.update(*b);
         }
+        println!("read {}", self.digest());
         Ok(n_read)
     }
 }
