@@ -4,6 +4,7 @@ use sdl2::keyboard::Keycode;
 use sdl2::pixels::Color;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
+use sdl2::TimerSubsystem;
 use vekotin::gfx;
 use vekotin::loader::obj::Obj;
 use vekotin::loader::png::Png;
@@ -12,6 +13,8 @@ use vekotin::math::Matrix3f;
 pub struct Game {
     event_pump: sdl2::EventPump,
     canvas: Canvas<Window>,
+    timer: TimerSubsystem,
+    ticks: u32,
     obj: Obj,
     texture: Png,
     angle: f32,
@@ -22,6 +25,7 @@ impl Game {
     pub fn new() -> Result<Self> {
         let sdl_context = sdl2::init().expect("failed to init SDL");
         let video_subsystem = sdl_context.video().expect("failed to get video context");
+        let timer = sdl_context.timer().expect("failed to get timer subsystem");
 
         let obj = Obj::from_file("assets/head.obj")?;
         let texture = Png::from_file("assets/head_diffuse.png")?;
@@ -40,6 +44,8 @@ impl Game {
         Ok(Self {
             event_pump,
             canvas,
+            timer,
+            ticks: 0,
             obj,
             texture,
             angle: 0.0,
@@ -77,8 +83,13 @@ impl emscripten_main_loop::MainLoop for Game {
         self.canvas.present();
 
         if self.rotating {
-            self.angle += 0.1;
+            self.angle += 0.05;
         }
+        let ticks = self.timer.ticks();
+        let delta = ticks - self.ticks;
+        println!("{}", delta);
+        self.ticks = ticks;
+
         // ::std::thread::sleep(::std::time::Duration::new(0, 1_000_000_000u32 / 30));
         emscripten_main_loop::MainLoopEvent::Continue
     }

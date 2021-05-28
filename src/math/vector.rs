@@ -1,3 +1,5 @@
+#![feature(specialization)]
+
 use crate::math::matrix::Matrix3;
 pub use num::{Float, Num, Zero};
 use std::iter::FromIterator;
@@ -45,6 +47,15 @@ pub type Vec4<T> = Vector<T, 4>;
 pub type Vec4f = Vec4<f32>;
 pub type Vec4i = Vec4<i32>;
 
+// https://stackoverflow.com/questions/66832882/generics-partial-specialization-in-rust
+// Also, please somebody contact me and show me a better way to do this. :)
+pub trait SizeAtLeast<const N: usize> {}
+
+impl<T: VecElem, const N: usize> SizeAtLeast<N> for Vector<T, N> {}
+impl<T: VecElem> SizeAtLeast<2> for Vector<T, 3> {}
+impl<T: VecElem> SizeAtLeast<2> for Vector<T, 4> {}
+impl<T: VecElem> SizeAtLeast<3> for Vector<T, 4> {}
+
 impl<T: VecElem, const N: usize> Zero for Vector<T, N> {
     #[inline]
     fn zero() -> Self {
@@ -57,25 +68,48 @@ impl<T: VecElem, const N: usize> Zero for Vector<T, N> {
 }
 
 impl<T: VecElem, const N: usize> Vector<T, N> {
-    #[inline]
+    #[inline(always)]
     pub fn constant(value: T) -> Self {
         Self {
             components: [value; N],
         }
+    }
+
+    #[inline(always)]
+    pub fn x(&self) -> T
+    where
+        Self: SizeAtLeast<2>,
+    {
+        self.components[0]
+    }
+    #[inline(always)]
+    pub fn y(&self) -> T
+    where
+        Self: SizeAtLeast<2>,
+    {
+        self.components[1]
+    }
+
+    #[inline(always)]
+    pub fn z(&self) -> T
+    where
+        Self: SizeAtLeast<3>,
+    {
+        self.components[2]
+    }
+
+    #[inline(always)]
+    pub fn w(&self) -> T
+    where
+        Self: SizeAtLeast<4>,
+    {
+        self.components[3]
     }
 }
 
 impl<T: VecElem> Vec2<T> {
     pub fn new(x: T, y: T) -> Vec2<T> {
         Vec2 { components: [x, y] }
-    }
-    #[inline]
-    pub fn x(&self) -> T {
-        self.components[0]
-    }
-    #[inline]
-    pub fn y(&self) -> T {
-        self.components[1]
     }
 }
 
@@ -85,18 +119,6 @@ impl<T: VecElem> Vec3<T> {
             components: [x, y, z],
         }
     }
-    #[inline]
-    pub fn x(&self) -> T {
-        self.components[0]
-    }
-    #[inline]
-    pub fn y(&self) -> T {
-        self.components[1]
-    }
-    #[inline]
-    pub fn z(&self) -> T {
-        self.components[2]
-    }
 }
 
 impl<T: VecElem> Vec4<T> {
@@ -104,22 +126,6 @@ impl<T: VecElem> Vec4<T> {
         Vec4 {
             components: [x, y, z, w],
         }
-    }
-    #[inline]
-    pub fn x(&self) -> T {
-        self.components[0]
-    }
-    #[inline]
-    pub fn y(&self) -> T {
-        self.components[1]
-    }
-    #[inline]
-    pub fn z(&self) -> T {
-        self.components[2]
-    }
-    #[inline]
-    pub fn w(&self) -> T {
-        self.components[3]
     }
 }
 
@@ -182,12 +188,20 @@ impl<T: VecElem, const N: usize> Vector<T, N> {
     }
 
     pub fn as_f32(&self) -> Vector<f32, N> {
-        self.iter().map(|x| x.as_f32()).collect()
+        let mut x = Vector::<f32, N>::zero();
+        for i in 0..N {
+            x[i] = self.components[i].as_f32();
+        }
+        x
     }
 
     pub fn unit(&self) -> Vector<f32, N> {
         let length_inv = 1.0 / self.length();
-        self.iter().map(|x| x.as_f32() * length_inv).collect()
+        let mut x = Vector::<f32, N>::zero();
+        for i in 0..N {
+            x[i] = self.components[i].as_f32() * length_inv;
+        }
+        x
     }
 }
 
@@ -280,7 +294,11 @@ impl<T: VecElem, const N: usize> Add for Vector<T, N> {
     /// assert_eq!(i + j + k, k + j + i);
     /// ```
     fn add(self, rhs: Self) -> Self::Output {
-        self.iter().zip(rhs.iter()).map(|(a, b)| a + b).collect()
+        let mut x = Self::zero();
+        for i in 0..N {
+            x[i] = self.components[i] + rhs.components[i];
+        }
+        x
     }
 }
 
@@ -307,7 +325,11 @@ impl<T: VecElem, const N: usize> Sub for Vector<T, N> {
     /// assert_eq!(i - i , zero);
     /// ```
     fn sub(self, rhs: Self) -> Self::Output {
-        self.iter().zip(rhs.iter()).map(|(a, b)| a - b).collect()
+        let mut x = Self::zero();
+        for i in 0..N {
+            x[i] = self.components[i] - rhs.components[i];
+        }
+        x
     }
 }
 
@@ -334,7 +356,11 @@ impl<T: VecElem + Neg<Output = T>, const N: usize> Neg for Vector<T, N> {
     /// assert_eq!(-i, Vec4f::new(-1.0, 0.0, 0.0, 0.0));
     /// ```
     fn neg(self) -> Self::Output {
-        self.iter().map(|a| -a).collect()
+        let mut x = Self::zero();
+        for i in 0..N {
+            x[i] = -self.components[i];
+        }
+        x
     }
 }
 
@@ -351,7 +377,11 @@ impl<T: VecElem, const N: usize> Mul<T> for Vector<T, N> {
     /// assert_eq!(v * 2.0, Vec2f::new(2.0, 4.0));
     /// ```
     fn mul(self, rhs: T) -> Self::Output {
-        self.iter().map(|a| rhs * a).collect()
+        let mut x = Self::zero();
+        for i in 0..N {
+            x[i] = self.components[i] * rhs;
+        }
+        x
     }
 }
 
@@ -403,7 +433,11 @@ impl<T: VecElem + Div<Output = T>, const N: usize> Div<T> for Vector<T, N> {
     /// ```
     fn div(self, rhs: T) -> Self::Output {
         let inv_rhs = T::one() / rhs;
-        self.iter().map(|a| a * inv_rhs).collect()
+        let mut x = Self::zero();
+        for i in 0..N {
+            x[i] = self.components[i] * inv_rhs;
+        }
+        x
     }
 }
 
