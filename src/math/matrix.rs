@@ -25,32 +25,32 @@ pub type Matrix4f = Matrix4<f32>;
 pub type Matrix4i = Matrix4<i32>;
 
 impl<T: VecElem, const N: usize> Matrix<T, N> {
+    pub fn get(&self, row: usize, col: usize) -> T {
+        self.columns[col][row]
+    }
+    pub fn set(&mut self, row: usize, col: usize, val: T) -> &mut Self {
+        self.columns[col][row] = val;
+        self
+    }
+
+    pub fn row(&self, row: usize) -> Vector<T, N> {
+        let mut v: Vector<T, N> = Vector::zero();
+        for i in 0..N {
+            v[i] = self.get(row, i);
+        }
+        v
+    }
+
+    pub fn col(&self, col: usize) -> Vector<T, N> {
+        self.columns[col]
+    }
+
     pub fn columns(&self) -> MatrixIterator<T, N> {
         self.into_iter()
     }
 
     pub fn columns_mut(&mut self) -> MatrixMutIterator<T, N> {
         self.into_iter()
-    }
-}
-
-impl<T: VecElem> Matrix2<T> {
-    //
-    // Constructors
-    //
-
-    pub fn new(m00: T, m01: T, m10: T, m11: T) -> Self {
-        Self {
-            columns: [Vec2::new(m00, m10), Vec2::new(m01, m11)],
-        }
-    }
-
-    pub fn from_columns(x: Vec2<T>, y: Vec2<T>) -> Self {
-        Self { columns: [x, y] }
-    }
-
-    pub fn from_rows(x: Vec2<T>, y: Vec2<T>) -> Self {
-        Self::new(x[0], x[1], y[0], y[1])
     }
 
     //
@@ -71,12 +71,33 @@ impl<T: VecElem> Matrix2<T> {
     ///            Matrix3f::new(1.0, 0.0, 0.0, 2.0, 2.0, 0.0, 3.0, 0.0, 2.0));
     /// ```
     pub fn transpose(&self) -> Self {
-        Self::new(
-            self.get(0, 0),
-            self.get(1, 0),
-            self.get(0, 1),
-            self.get(1, 1),
-        )
+        let mut m = Matrix::zero();
+        for row in 0..N {
+            for col in 0..N {
+                m.set(row, col, self.get(col, row));
+            }
+        }
+        m
+    }
+}
+
+impl<T: VecElem> Matrix2<T> {
+    //
+    // Constructors
+    //
+
+    pub fn new(m00: T, m01: T, m10: T, m11: T) -> Self {
+        Self {
+            columns: [Vec2::new(m00, m10), Vec2::new(m01, m11)],
+        }
+    }
+
+    pub fn from_columns(x: Vec2<T>, y: Vec2<T>) -> Self {
+        Self { columns: [x, y] }
+    }
+
+    pub fn from_rows(x: Vec2<T>, y: Vec2<T>) -> Self {
+        Self::new(x[0], x[1], y[0], y[1])
     }
 }
 
@@ -111,37 +132,6 @@ impl<T: VecElem> Matrix3<T> {
 
     pub fn from_rows(x: Vec3<T>, y: Vec3<T>, z: Vec3<T>) -> Matrix3<T> {
         Matrix3::new(x[0], x[1], x[2], y[0], y[1], y[2], z[0], z[1], z[2])
-    }
-
-    //
-    // Basic matrix operations
-    //
-
-    /// # Examples
-    ///
-    /// ```rust
-    /// use vekotin::math::matrix::*;
-    ///
-    /// let zero = Matrix3f::zero();
-    /// let id = Matrix3f::one();
-    ///
-    /// assert_eq!(zero.transpose(), zero);
-    /// assert_eq!(id.transpose(), id);
-    /// assert_eq!(Matrix3f::new(1.0, 2.0, 3.0, 0.0, 2.0, 0.0, 0.0, 0.0, 2.0).transpose(),
-    ///            Matrix3f::new(1.0, 0.0, 0.0, 2.0, 2.0, 0.0, 3.0, 0.0, 2.0));
-    /// ```
-    pub fn transpose(&self) -> Matrix3<T> {
-        Matrix3::new(
-            self.get(0, 0),
-            self.get(1, 0),
-            self.get(2, 0),
-            self.get(0, 1),
-            self.get(1, 1),
-            self.get(2, 1),
-            self.get(0, 2),
-            self.get(1, 2),
-            self.get(2, 2),
-        )
     }
 }
 
@@ -190,44 +180,6 @@ impl<T: VecElem> Matrix4<T> {
             w[2], w[3],
         )
     }
-
-    //
-    // Basic matrix operations
-    //
-
-    /// # Examples
-    ///
-    /// ```rust
-    /// use vekotin::math::matrix::*;
-    ///
-    /// let zero = Matrix4f::zero();
-    /// let id = Matrix4f::one();
-    ///
-    /// assert_eq!(zero.transpose(), zero);
-    /// assert_eq!(id.transpose(), id);
-    /// assert_eq!(Matrix4f::new(1.0, 2.0, 3.0, 4.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0,  0.0, 0.0, 0.0, 2.0).transpose(),
-    ///            Matrix4f::new(1.0, 0.0, 0.0, 0.0, 2.0, 2.0, 0.0, 0.0, 3.0, 0.0, 2.0, 0.0, 4.0, 0.0, 0.0, 2.0));
-    /// ```
-    pub fn transpose(&self) -> Matrix4<T> {
-        Matrix4::new(
-            self.get(0, 0),
-            self.get(1, 0),
-            self.get(2, 0),
-            self.get(3, 0),
-            self.get(0, 1),
-            self.get(1, 1),
-            self.get(2, 1),
-            self.get(3, 1),
-            self.get(0, 2),
-            self.get(1, 2),
-            self.get(2, 2),
-            self.get(3, 2),
-            self.get(0, 3),
-            self.get(1, 3),
-            self.get(2, 3),
-            self.get(3, 3),
-        )
-    }
 }
 
 impl<T: VecElem> From<Matrix3<T>> for Matrix4<T> {
@@ -250,28 +202,6 @@ impl<T: VecElem> From<Matrix3<T>> for Matrix4<T> {
             T::zero(),
             T::zero(),
         )
-    }
-}
-
-impl<T: VecElem, const N: usize> Matrix<T, N> {
-    pub fn get(&self, row: usize, col: usize) -> T {
-        self.columns[col][row]
-    }
-    pub fn set(&mut self, row: usize, col: usize, val: T) -> &mut Self {
-        self.columns[col][row] = val;
-        self
-    }
-
-    pub fn row(&self, row: usize) -> Vector<T, N> {
-        let mut v: Vector<T, N> = Vector::zero();
-        for i in 0..N {
-            v[i] = self.get(row, i);
-        }
-        v
-    }
-
-    pub fn col(&self, col: usize) -> Vector<T, N> {
-        self.columns[col]
     }
 }
 
