@@ -105,6 +105,37 @@ impl<T: VecElem, const N: usize> Vector<T, N> {
     {
         self.components[3]
     }
+
+    pub fn xyz(&self) -> Vec3<T>
+    where
+        Self: SizeAtLeast<3>,
+    {
+        Vec3::new(self.components[0], self.components[1], self.components[2])
+    }
+
+    pub fn xyz0(&self) -> Vec4<T>
+    where
+        Self: SizeAtLeast<3>,
+    {
+        Vec4::new(
+            self.components[0],
+            self.components[1],
+            self.components[2],
+            T::zero(),
+        )
+    }
+
+    pub fn xyz1(&self) -> Vec4<T>
+    where
+        Self: SizeAtLeast<3>,
+    {
+        Vec4::new(
+            self.components[0],
+            self.components[1],
+            self.components[2],
+            T::one(),
+        )
+    }
 }
 
 impl<T: VecElem> Vec2<T> {
@@ -536,5 +567,11 @@ impl<T: VecElem, const N: usize> IndexMut<usize> for Vector<T, N> {
     /// ```
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
         &mut self.components[index]
+    }
+}
+
+impl<T: VecElem> From<Vec3<T>> for Vec4<T> {
+    fn from(v: Vec3<T>) -> Self {
+        Self::new(v.x(), v.y(), v.z(), T::zero())
     }
 }
