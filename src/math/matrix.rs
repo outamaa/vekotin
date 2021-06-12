@@ -493,8 +493,8 @@ impl<T: VecElem, const N: usize> Mul for Matrix<T, N> {
     }
 }
 
-impl<T: VecElem> Mul<Vec3<T>> for Matrix3<T> {
-    type Output = Vec3<T>;
+impl<T: VecElem, const N: usize> Mul<Vector<T, N>> for Matrix<T, N> {
+    type Output = Vector<T, N>;
 
     /// # Examples
     ///
@@ -512,42 +512,42 @@ impl<T: VecElem> Mul<Vec3<T>> for Matrix3<T> {
     /// assert_eq!(id * v, v);
     /// assert_eq!(flip * v, Vec3f::new(3.0, 2.0, 1.0));
     /// ```
-    fn mul(self, rhs: Vec3<T>) -> Self::Output {
+    fn mul(self, rhs: Self::Output) -> Self::Output {
         self.columns()
             .zip(rhs.iter())
             .map(|(col, c)| (*col) * c)
-            .fold(Vec3::zero(), |acc, v| acc + v)
+            .fold(Self::Output::zero(), |acc, v| acc + v)
     }
 }
 
-impl<T: VecElem> Mul<T> for &Matrix3<T> {
-    type Output = Matrix3<T>;
+impl<T: VecElem, const N: usize> Mul<T> for &Matrix<T, N> {
+    type Output = Matrix<T, N>;
 
     fn mul(self, rhs: T) -> Self::Output {
         self.columns().map(|col| (*col) * rhs).collect()
     }
 }
 
-impl<T: VecElem> Mul<T> for Matrix3<T> {
-    type Output = Matrix3<T>;
+impl<T: VecElem, const N: usize> Mul<T> for Matrix<T, N> {
+    type Output = Matrix<T, N>;
 
     fn mul(self, rhs: T) -> Self::Output {
         self.columns().map(|col| (*col) * rhs).collect()
     }
 }
 
-impl Mul<&Matrix3<f32>> for f32 {
-    type Output = Matrix3<f32>;
+impl<const N: usize> Mul<&Matrix<f32, N>> for f32 {
+    type Output = Matrix<f32, N>;
 
-    fn mul(self, rhs: &Matrix3<f32>) -> Self::Output {
+    fn mul(self, rhs: &Self::Output) -> Self::Output {
         rhs * self
     }
 }
 
-impl Mul<Matrix3<f32>> for f32 {
-    type Output = Matrix3<f32>;
+impl<const N: usize> Mul<Matrix<f32, N>> for f32 {
+    type Output = Matrix<f32, N>;
 
-    fn mul(self, rhs: Matrix3<f32>) -> Self::Output {
+    fn mul(self, rhs: Self::Output) -> Self::Output {
         rhs * self
     }
 }
