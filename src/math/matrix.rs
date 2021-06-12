@@ -1,5 +1,6 @@
 use crate::math::vector::{Vec3, VecElem, Vector};
-pub use num::{Float, Zero};
+use crate::math::{Vec2, Vec4};
+pub use num::{Float, One, Zero};
 use std::iter::FromIterator;
 use std::ops::{Add, Mul, Sub};
 use std::slice::Iter;
@@ -22,6 +23,62 @@ pub type Matrix3i = Matrix3<i32>;
 pub type Matrix4<T> = Matrix<T, 4>;
 pub type Matrix4f = Matrix4<f32>;
 pub type Matrix4i = Matrix4<i32>;
+
+impl<T: VecElem, const N: usize> Matrix<T, N> {
+    pub fn columns(&self) -> MatrixIterator<T, N> {
+        self.into_iter()
+    }
+
+    pub fn columns_mut(&mut self) -> MatrixMutIterator<T, N> {
+        self.into_iter()
+    }
+}
+
+impl<T: VecElem> Matrix2<T> {
+    //
+    // Constructors
+    //
+
+    pub fn new(m00: T, m01: T, m10: T, m11: T) -> Self {
+        Self {
+            columns: [Vec2::new(m00, m10), Vec2::new(m01, m11)],
+        }
+    }
+
+    pub fn from_columns(x: Vec2<T>, y: Vec2<T>) -> Self {
+        Self { columns: [x, y] }
+    }
+
+    pub fn from_rows(x: Vec2<T>, y: Vec2<T>) -> Self {
+        Self::new(x[0], x[1], y[0], y[1])
+    }
+
+    //
+    // Basic matrix operations
+    //
+
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vekotin::math::matrix::*;
+    ///
+    /// let zero = Matrix3f::zero();
+    /// let id = Matrix3f::one();
+    ///
+    /// assert_eq!(zero.transpose(), zero);
+    /// assert_eq!(id.transpose(), id);
+    /// assert_eq!(Matrix3f::new(1.0, 2.0, 3.0, 0.0, 2.0, 0.0, 0.0, 0.0, 2.0).transpose(),
+    ///            Matrix3f::new(1.0, 0.0, 0.0, 2.0, 2.0, 0.0, 3.0, 0.0, 2.0));
+    /// ```
+    pub fn transpose(&self) -> Self {
+        Self::new(
+            self.get(0, 0),
+            self.get(1, 0),
+            self.get(0, 1),
+            self.get(1, 1),
+        )
+    }
+}
 
 impl<T: VecElem> Matrix3<T> {
     //
@@ -57,26 +114,6 @@ impl<T: VecElem> Matrix3<T> {
     }
 
     //
-    // Getters, setters, iterators
-    //
-
-    pub fn row(&self, row: usize) -> Vec3<T> {
-        Vec3::new(self.get(row, 0), self.get(row, 1), self.get(row, 2))
-    }
-
-    pub fn col(&self, col: usize) -> Vec3<T> {
-        self.columns[col]
-    }
-
-    pub fn columns(&self) -> MatrixIterator<T> {
-        self.into_iter()
-    }
-
-    pub fn columns_mut(&mut self) -> MatrixMutIterator<T> {
-        self.into_iter()
-    }
-
-    //
     // Basic matrix operations
     //
 
@@ -86,7 +123,7 @@ impl<T: VecElem> Matrix3<T> {
     /// use vekotin::math::matrix::*;
     ///
     /// let zero = Matrix3f::zero();
-    /// let id = Matrix3f::identity();
+    /// let id = Matrix3f::one();
     ///
     /// assert_eq!(zero.transpose(), zero);
     /// assert_eq!(id.transpose(), id);
@@ -108,6 +145,114 @@ impl<T: VecElem> Matrix3<T> {
     }
 }
 
+impl<T: VecElem> Matrix4<T> {
+    //
+    // Constructors
+    //
+
+    pub fn new(
+        m00: T,
+        m01: T,
+        m02: T,
+        m03: T,
+        m10: T,
+        m11: T,
+        m12: T,
+        m13: T,
+        m20: T,
+        m21: T,
+        m22: T,
+        m23: T,
+        m30: T,
+        m31: T,
+        m32: T,
+        m33: T,
+    ) -> Matrix4<T> {
+        Matrix4 {
+            columns: [
+                Vec4::new(m00, m10, m20, m30),
+                Vec4::new(m01, m11, m21, m31),
+                Vec4::new(m02, m12, m22, m32),
+                Vec4::new(m03, m13, m23, m33),
+            ],
+        }
+    }
+
+    pub fn from_columns(x: Vec4<T>, y: Vec4<T>, z: Vec4<T>, w: Vec4<T>) -> Matrix4<T> {
+        Matrix4 {
+            columns: [x, y, z, w],
+        }
+    }
+
+    pub fn from_rows(x: Vec4<T>, y: Vec4<T>, z: Vec4<T>, w: Vec4<T>) -> Matrix4<T> {
+        Matrix4::new(
+            x[0], x[1], x[2], x[3], y[0], y[1], y[2], y[3], z[0], z[1], z[2], z[3], w[0], w[1],
+            w[2], w[3],
+        )
+    }
+
+    //
+    // Basic matrix operations
+    //
+
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vekotin::math::matrix::*;
+    ///
+    /// let zero = Matrix4f::zero();
+    /// let id = Matrix4f::one();
+    ///
+    /// assert_eq!(zero.transpose(), zero);
+    /// assert_eq!(id.transpose(), id);
+    /// assert_eq!(Matrix4f::new(1.0, 2.0, 3.0, 4.0, 0.0, 2.0, 0.0, 0.0, 0.0, 0.0, 2.0, 0.0,  0.0, 0.0, 0.0, 2.0).transpose(),
+    ///            Matrix4f::new(1.0, 0.0, 0.0, 0.0, 2.0, 2.0, 0.0, 0.0, 3.0, 0.0, 2.0, 0.0, 4.0, 0.0, 0.0, 2.0));
+    /// ```
+    pub fn transpose(&self) -> Matrix4<T> {
+        Matrix4::new(
+            self.get(0, 0),
+            self.get(1, 0),
+            self.get(2, 0),
+            self.get(3, 0),
+            self.get(0, 1),
+            self.get(1, 1),
+            self.get(2, 1),
+            self.get(3, 1),
+            self.get(0, 2),
+            self.get(1, 2),
+            self.get(2, 2),
+            self.get(3, 2),
+            self.get(0, 3),
+            self.get(1, 3),
+            self.get(2, 3),
+            self.get(3, 3),
+        )
+    }
+}
+
+impl<T: VecElem> From<Matrix3<T>> for Matrix4<T> {
+    fn from(m: Matrix3<T>) -> Self {
+        Matrix4::new(
+            m.get(0, 0),
+            m.get(0, 1),
+            m.get(0, 2),
+            T::zero(),
+            m.get(1, 0),
+            m.get(1, 1),
+            m.get(1, 2),
+            T::zero(),
+            m.get(2, 0),
+            m.get(2, 1),
+            m.get(2, 2),
+            T::zero(),
+            T::zero(),
+            T::zero(),
+            T::zero(),
+            T::zero(),
+        )
+    }
+}
+
 impl<T: VecElem, const N: usize> Matrix<T, N> {
     pub fn get(&self, row: usize, col: usize) -> T {
         self.columns[col][row]
@@ -115,6 +260,18 @@ impl<T: VecElem, const N: usize> Matrix<T, N> {
     pub fn set(&mut self, row: usize, col: usize, val: T) -> &mut Self {
         self.columns[col][row] = val;
         self
+    }
+
+    pub fn row(&self, row: usize) -> Vector<T, N> {
+        let mut v: Vector<T, N> = Vector::zero();
+        for i in 0..N {
+            v[i] = self.get(row, i);
+        }
+        v
+    }
+
+    pub fn col(&self, col: usize) -> Vector<T, N> {
+        self.columns[col]
     }
 }
 
@@ -180,7 +337,7 @@ impl<T: Float + VecElem + Mul<Matrix3<T>, Output = Matrix3<T>>> Matrix3<T> {
         // To rotate v about a by theta we want
         // v' = cos_theta * v + (1 - cos_theta) * (v . a) * a + sin_theta * (a x v)
         // Here we just squash what's done to v on the right hand side into a single matrix
-        cos_theta * Matrix3::identity()
+        cos_theta * Matrix3::one()
             + (T::one() - cos_theta) * a.outer(a)
             + sin_theta * Matrix3::cross(a)
     }
@@ -190,7 +347,7 @@ impl<T: Float + VecElem + Mul<Matrix3<T>, Output = Matrix3<T>>> Matrix3<T> {
     /// use vekotin::math::matrix::*;
     ///
     /// let zero: Matrix3f = Matrix3::zero();
-    /// let id: Matrix3f = Matrix3::identity();
+    /// let id: Matrix3f = Matrix3::one();
     /// let ortho = Matrix3::new(0.0, 1.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
     ///
     /// assert_eq!(zero.inverse(), None);
@@ -216,19 +373,11 @@ impl<T: Float + VecElem + Mul<Matrix3<T>, Output = Matrix3<T>>> Matrix3<T> {
     }
 }
 
-impl<T: VecElem> Zero for Matrix3<T> {
-    fn zero() -> Matrix3<T> {
-        Matrix3::new(
-            T::zero(),
-            T::zero(),
-            T::zero(),
-            T::zero(),
-            T::zero(),
-            T::zero(),
-            T::zero(),
-            T::zero(),
-            T::zero(),
-        )
+impl<T: VecElem, const N: usize> Zero for Matrix<T, N> {
+    fn zero() -> Matrix<T, N> {
+        Matrix {
+            columns: [Vector::zero(); N],
+        }
     }
 
     fn is_zero(&self) -> bool {
@@ -236,19 +385,13 @@ impl<T: VecElem> Zero for Matrix3<T> {
     }
 }
 
-impl<T: VecElem> Matrix3<T> {
-    pub fn identity() -> Matrix3<T> {
-        Matrix3::new(
-            T::one(),
-            T::zero(),
-            T::zero(),
-            T::zero(),
-            T::one(),
-            T::zero(),
-            T::zero(),
-            T::zero(),
-            T::one(),
-        )
+impl<T: VecElem, const N: usize> One for Matrix<T, N> {
+    fn one() -> Self {
+        let mut m = Self::zero();
+        for i in 0..N {
+            m.set(i, i, T::one());
+        }
+        m
     }
 }
 
@@ -259,7 +402,7 @@ impl<T: VecElem + Sub<Output = T>> Matrix3<T> {
     /// use vekotin::math::matrix::*;
     ///
     /// let zero = Matrix3f::zero();
-    /// let id = Matrix3f::identity();
+    /// let id = Matrix3f::one();
     ///
     /// assert_eq!(zero.determinant(), 0.0);
     /// assert_eq!(id.determinant(), 1.0);
@@ -281,7 +424,7 @@ impl<T: VecElem> Matrix3<T> {
     /// use vekotin::math::matrix::*;
     ///
     /// let zero = Matrix3f::zero();
-    /// let id = Matrix3f::identity();
+    /// let id = Matrix3f::one();
     /// let ortho = Matrix3f::new(0.0, 1.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
     /// let unortho = Matrix3f::new(0.0, 2.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0);
     ///
@@ -291,7 +434,7 @@ impl<T: VecElem> Matrix3<T> {
     /// assert!(!unortho.is_orthogonal());
     /// ```
     pub fn is_orthogonal(&self) -> bool {
-        (*self) * self.transpose() == Matrix3::identity()
+        (*self) * self.transpose() == Matrix3::one()
     }
 }
 
@@ -299,8 +442,8 @@ impl<T: VecElem> Matrix3<T> {
 // Arithmetic
 //
 
-impl<T: VecElem> Add for Matrix3<T> {
-    type Output = Matrix3<T>;
+impl<T: VecElem, const N: usize> Add for Matrix<T, N> {
+    type Output = Matrix<T, N>;
 
     /// # Examples
     ///
@@ -308,7 +451,7 @@ impl<T: VecElem> Add for Matrix3<T> {
     /// use vekotin::math::matrix::*;
     ///
     /// let zero = Matrix3f::zero();
-    /// let id = Matrix3f::identity();
+    /// let id = Matrix3f::one();
     ///
     /// assert_eq!(zero + id, id);
     /// assert_eq!(id + zero, id);
@@ -323,8 +466,8 @@ impl<T: VecElem> Add for Matrix3<T> {
     }
 }
 
-impl<T: VecElem> Mul for Matrix3<T> {
-    type Output = Matrix3<T>;
+impl<T: VecElem, const N: usize> Mul for Matrix<T, N> {
+    type Output = Self;
 
     /// # Examples
     ///
@@ -332,7 +475,7 @@ impl<T: VecElem> Mul for Matrix3<T> {
     /// use vekotin::math::matrix::*;
     ///
     /// let zero = Matrix3f::zero();
-    /// let id = Matrix3f::identity();
+    /// let id = Matrix3f::one();
     ///
     /// assert_eq!(zero * id, zero);
     /// assert_eq!(id * zero, zero);
@@ -340,9 +483,9 @@ impl<T: VecElem> Mul for Matrix3<T> {
     /// assert_eq!(id * id, id);
     /// ```
     fn mul(self, rhs: Self) -> Self::Output {
-        let mut m = Matrix3::zero();
-        for i in 0 as usize..3 {
-            for j in 0 as usize..3 {
+        let mut m = Self::zero();
+        for i in 0 as usize..N {
+            for j in 0 as usize..N {
                 m.set(i, j, self.row(i).dot(rhs.col(j)));
             }
         }
@@ -360,7 +503,7 @@ impl<T: VecElem> Mul<Vec3<T>> for Matrix3<T> {
     /// use vekotin::math::vector::*;
     ///
     /// let zero = Matrix3f::zero();
-    /// let id = Matrix3f::identity();
+    /// let id = Matrix3f::one();
     /// let flip = Matrix3f::new(0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0);
     /// let v = Vec3f::new(1.0, 2.0, 3.0);
     /// let v_zero = Vec3f::zero();
@@ -413,13 +556,13 @@ impl Mul<Matrix3<f32>> for f32 {
 // Iterators
 //
 
-pub struct MatrixIterator<'a, T: VecElem> {
-    iter: Iter<'a, Vec3<T>>,
+pub struct MatrixIterator<'a, T: VecElem, const N: usize> {
+    iter: Iter<'a, Vector<T, N>>,
 }
 
-impl<'a, T: VecElem> IntoIterator for &'a Matrix3<T> {
-    type Item = &'a Vec3<T>;
-    type IntoIter = MatrixIterator<'a, T>;
+impl<'a, T: VecElem, const N: usize> IntoIterator for &'a Matrix<T, N> {
+    type Item = &'a Vector<T, N>;
+    type IntoIter = MatrixIterator<'a, T, N>;
 
     fn into_iter(self) -> Self::IntoIter {
         MatrixIterator {
@@ -428,21 +571,21 @@ impl<'a, T: VecElem> IntoIterator for &'a Matrix3<T> {
     }
 }
 
-impl<'a, T: VecElem> Iterator for MatrixIterator<'a, T> {
-    type Item = &'a Vec3<T>;
+impl<'a, T: VecElem, const N: usize> Iterator for MatrixIterator<'a, T, N> {
+    type Item = &'a Vector<T, N>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next()
     }
 }
 
-pub struct MatrixMutIterator<'a, T: VecElem> {
-    iter: std::slice::IterMut<'a, Vec3<T>>,
+pub struct MatrixMutIterator<'a, T: VecElem, const N: usize> {
+    iter: std::slice::IterMut<'a, Vector<T, N>>,
 }
 
-impl<'a, T: VecElem> IntoIterator for &'a mut Matrix3<T> {
-    type Item = &'a mut Vec3<T>;
-    type IntoIter = MatrixMutIterator<'a, T>;
+impl<'a, T: VecElem, const N: usize> IntoIterator for &'a mut Matrix<T, N> {
+    type Item = &'a mut Vector<T, N>;
+    type IntoIter = MatrixMutIterator<'a, T, N>;
 
     fn into_iter(self) -> Self::IntoIter {
         MatrixMutIterator {
@@ -451,20 +594,21 @@ impl<'a, T: VecElem> IntoIterator for &'a mut Matrix3<T> {
     }
 }
 
-impl<'a, T: VecElem> Iterator for MatrixMutIterator<'a, T> {
-    type Item = &'a mut Vec3<T>;
+impl<'a, T: VecElem, const N: usize> Iterator for MatrixMutIterator<'a, T, N> {
+    type Item = &'a mut Vector<T, N>;
 
     fn next(&mut self) -> Option<Self::Item> {
         self.iter.next()
     }
 }
 
-impl<T: VecElem> FromIterator<Vec3<T>> for Matrix3<T> {
-    fn from_iter<I: IntoIterator<Item = Vec3<T>>>(iter: I) -> Self {
-        let mut v_iter = iter.into_iter().take(3);
-        let x = v_iter.next().unwrap_or(Vec3::zero());
-        let y = v_iter.next().unwrap_or(Vec3::zero());
-        let z = v_iter.next().unwrap_or(Vec3::zero());
-        Matrix3 { columns: [x, y, z] }
+impl<T: VecElem, const N: usize> FromIterator<Vector<T, N>> for Matrix<T, N> {
+    fn from_iter<I: IntoIterator<Item = Vector<T, N>>>(iter: I) -> Self {
+        let mut v_iter = iter.into_iter().take(N);
+        let mut m = Self::zero();
+        for i in 0..N {
+            m.columns[i] = v_iter.next().unwrap_or(Vector::zero());
+        }
+        m
     }
 }
