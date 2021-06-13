@@ -1,4 +1,5 @@
 use crate::geometry::line_segment::LineSegment2i;
+use crate::geometry::transform::Transform;
 use crate::geometry::triangle::{Triangle2f, Triangle3f};
 use crate::geometry::{Point2i, Point3f};
 use crate::loader::obj::Obj;
@@ -168,7 +169,7 @@ pub fn draw_triangle(
     }
 }
 
-pub fn draw_obj(canvas: &mut Canvas<Window>, obj: &Obj, texture: &Png, xform: &Matrix3f) {
+pub fn draw_obj(canvas: &mut Canvas<Window>, obj: &Obj, texture: &Png, xform: &Transform) {
     let viewport = canvas.viewport();
     let w = viewport.width();
     let h = viewport.height();
@@ -180,20 +181,23 @@ pub fn draw_obj(canvas: &mut Canvas<Window>, obj: &Obj, texture: &Png, xform: &M
         let t_indices = &obj.uv_index_triples[i];
         let n_indices = &obj.normal_index_triples[i];
 
-        let v0 = *xform * obj.vertices[v_indices.0 as usize];
+        let v0 = *xform * Point3f::from(obj.vertices[v_indices.0 as usize]);
+        let v0 = v0.perspective_divide();
         // Project the 3D points onto the canvas, orthographic projection
         let p0 = Point3f::new(
             (v0.x() + 1.0) * w as f32 / 2.0,
             h as f32 - ((v0.y() + 1.0) * h as f32 / 2.0),
             v0.z(),
         );
-        let v1 = *xform * obj.vertices[v_indices.1 as usize];
+        let v1 = *xform * Point3f::from(obj.vertices[v_indices.1 as usize]);
+        let v1 = v1.perspective_divide();
         let p1 = Point3f::new(
             (v1.x() + 1.0) * w as f32 / 2.0,
             h as f32 - ((v1.y() + 1.0) * h as f32 / 2.0),
             v1.z(),
         );
-        let v2 = *xform * obj.vertices[v_indices.2 as usize];
+        let v2 = *xform * Point3f::from(obj.vertices[v_indices.2 as usize]);
+        let v2 = v2.perspective_divide();
         let p2 = Point3f::new(
             (v2.x() + 1.0) * w as f32 / 2.0,
             h as f32 - ((v2.y() + 1.0) * h as f32 / 2.0),
@@ -205,9 +209,12 @@ pub fn draw_obj(canvas: &mut Canvas<Window>, obj: &Obj, texture: &Png, xform: &M
         let white = Color::RGBA(255, 255, 255, 255);
 
         if f.normal().z() <= 0.0 {
-            let n0 = (*xform * obj.normals[n_indices.0 as usize]).into();
-            let n1 = (*xform * obj.normals[n_indices.1 as usize]).into();
-            let n2 = (*xform * obj.normals[n_indices.2 as usize]).into();
+            let n0 =
+                (*xform * Point3f::from(obj.normals[n_indices.0 as usize])).perspective_divide();
+            let n1 =
+                (*xform * Point3f::from(obj.normals[n_indices.1 as usize])).perspective_divide();
+            let n2 =
+                (*xform * Point3f::from(obj.normals[n_indices.2 as usize])).perspective_divide();
             let n = Triangle3f::new(&n0, &n1, &n2);
 
             let t0 = obj.uvs[t_indices.0 as usize].into();

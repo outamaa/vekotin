@@ -200,7 +200,7 @@ impl<T: VecElem> From<Matrix3<T>> for Matrix4<T> {
             T::zero(),
             T::zero(),
             T::zero(),
-            T::zero(),
+            T::one(),
         )
     }
 }

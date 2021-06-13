@@ -1,5 +1,5 @@
 use crate::math::vector::{VecElem, Vector};
-use crate::math::{Vec2, Vec3};
+use crate::math::{Vec2, Vec3, Vec4};
 use std::ops::{Add, Index, IndexMut, Sub};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -52,6 +52,35 @@ impl<T: VecElem> Point3<T> {
     #[inline]
     pub fn z(&self) -> T {
         self.0.z()
+    }
+}
+
+impl<T: VecElem> Point4<T> {
+    pub fn new(x: T, y: T, z: T, w: T) -> Self {
+        Point(Vec4::<T>::new(x, y, z, w))
+    }
+    #[inline]
+    pub fn x(&self) -> T {
+        self.0.x()
+    }
+    #[inline]
+    pub fn y(&self) -> T {
+        self.0.y()
+    }
+    #[inline]
+    pub fn z(&self) -> T {
+        self.0.z()
+    }
+
+    #[inline]
+    pub fn w(&self) -> T {
+        self.0.w()
+    }
+}
+
+impl Point4f {
+    pub fn perspective_divide(&self) -> Point3f {
+        Point((self.0 / self.0.w()).xyz())
     }
 }
 
