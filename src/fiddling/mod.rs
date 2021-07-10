@@ -1,5 +1,13 @@
-use std::cmp;
+use std::io::Read;
+use std::{cmp, io};
 
+/// # Examples
+///
+/// ```rust
+/// use vekotin::fiddling;
+///
+/// assert_eq!(0b11001111, fiddling::reverse_bits(0b11110011));
+/// ```
 pub fn reverse_bits(b: u8) -> u8 {
     let mut b = (b & 0b11110000) >> 4 | (b & 0b00001111) << 4;
     b = (b & 0b11001100) >> 2 | (b & 0b00110011) << 2;
@@ -125,4 +133,141 @@ pub fn n_bits_by_index(bytes: &[u8], n_bits: u8, bit_idx: usize, bit_order: BitO
     read_bits
 }
 
-struct Fiddler {}
+/// # Examples
+///
+/// ```rust
+/// use vekotin::fiddling::Fiddler;
+/// use vekotin::fiddling::BitOrder::*;
+///
+/// let bytes: [u8; 2] = [0b01010101, 0b00110011];
+/// let mut f = Fiddler::new(&bytes[..]);
+///
+/// assert_eq!(f.peek_bits(0, MSBFirst).unwrap(), f.peek_bits(0, MSBFirst).unwrap());
+/// assert_eq!(f.peek_bits(1, MSBFirst).unwrap(), f.peek_bits(1, MSBFirst).unwrap());
+/// assert_eq!(f.peek_bits(4, MSBFirst).unwrap(), f.peek_bits(4, MSBFirst).unwrap());
+/// assert_eq!(f.peek_bits(8, MSBFirst).unwrap(), f.peek_bits(8, MSBFirst).unwrap());
+/// assert_eq!(f.peek_bits(9, MSBFirst).unwrap(), f.peek_bits(9, MSBFirst).unwrap());
+/// assert_eq!(f.peek_bits(16, MSBFirst).unwrap(), f.peek_bits(16, MSBFirst).unwrap());
+///
+/// assert_eq!(f.peek_bits(0, LSBFirst).unwrap(), f.peek_bits(0, LSBFirst).unwrap());
+/// assert_eq!(f.peek_bits(1, LSBFirst).unwrap(), f.peek_bits(1, LSBFirst).unwrap());
+/// assert_eq!(f.peek_bits(4, LSBFirst).unwrap(), f.peek_bits(4, LSBFirst).unwrap());
+/// assert_eq!(f.peek_bits(8, LSBFirst).unwrap(), f.peek_bits(8, LSBFirst).unwrap());
+/// assert_eq!(f.peek_bits(9, LSBFirst).unwrap(), f.peek_bits(9, LSBFirst).unwrap());
+/// assert_eq!(f.peek_bits(16, LSBFirst).unwrap(), f.peek_bits(16, LSBFirst).unwrap());
+///
+/// assert!(f.peek_bits(17, MSBFirst).err().is_some());
+///
+/// // Consume two bits
+/// assert_eq!(f.peek_bits(2, MSBFirst).unwrap(), f.read_bits(2, MSBFirst).unwrap());
+///
+/// // Peeking should still work
+/// assert_eq!(f.peek_bits(0, MSBFirst).unwrap(), f.peek_bits(0, MSBFirst).unwrap());
+/// assert_eq!(f.peek_bits(1, MSBFirst).unwrap(), f.peek_bits(1, MSBFirst).unwrap());
+/// assert_eq!(f.peek_bits(4, MSBFirst).unwrap(), f.peek_bits(4, MSBFirst).unwrap());
+/// assert_eq!(f.peek_bits(8, MSBFirst).unwrap(), f.peek_bits(8, MSBFirst).unwrap());
+/// assert_eq!(f.peek_bits(9, MSBFirst).unwrap(), f.peek_bits(9, MSBFirst).unwrap());
+/// assert!(f.peek_bits(16, MSBFirst).err().is_some());
+///
+/// assert_eq!(f.peek_bits(0, LSBFirst).unwrap(), f.peek_bits(0, LSBFirst).unwrap());
+/// assert_eq!(f.peek_bits(1, LSBFirst).unwrap(), f.peek_bits(1, LSBFirst).unwrap());
+/// assert_eq!(f.peek_bits(4, LSBFirst).unwrap(), f.peek_bits(4, LSBFirst).unwrap());
+/// assert_eq!(f.peek_bits(8, LSBFirst).unwrap(), f.peek_bits(8, LSBFirst).unwrap());
+/// assert_eq!(f.peek_bits(9, LSBFirst).unwrap(), f.peek_bits(9, LSBFirst).unwrap());
+/// assert!(f.peek_bits(16, LSBFirst).err().is_some());
+/// ```
+pub struct Fiddler<R> {
+    inner: R,
+    buf: [u8; 5], // 64 bits (ought to be enough for everybody) + one extra byte
+    read_bit_pos: usize,
+    load_byte_pos: usize,
+}
+/// A reader for reading a byte stream on a bit basis,
+impl<R: Read> Fiddler<R> {
+    pub fn new(inner: R) -> Fiddler<R> {
+        Fiddler {
+            inner,
+            buf: [0; 5],
+            read_bit_pos: 0,
+            load_byte_pos: 0,
+        }
+    }
+
+    /// Peek at the next `n` bits. Does not change the bit position of fiddler, but _can_ read more
+    /// bytes from the `inner` reader.
+    pub fn peek_bits(&mut self, n: usize, bo: BitOrder) -> io::Result<u64> {
+        assert!(n <= (self.buf.len() - 1) * 8);
+        self.ensure_readable_bits(n)?;
+        Ok(n_bits_by_index(&self.buf, n as u8, self.read_bit_pos, bo))
+    }
+
+    /// Read (and consume) the next `n` bits from the `inner` reader.
+    pub fn read_bits(&mut self, n: usize, bo: BitOrder) -> io::Result<u64> {
+        let result = self.peek_bits(n, bo)?;
+        self.read_bit_pos += n;
+        Ok(result)
+    }
+
+    /// Load bytes from `inner` reader
+    fn load_bytes(&mut self, n: usize) -> io::Result<()> {
+        assert!(self.load_byte_pos + n <= self.buf.len());
+        self.inner
+            .read_exact(&mut self.buf[self.load_byte_pos..self.load_byte_pos + n])?;
+        self.load_byte_pos += n;
+        Ok(())
+    }
+
+    /// Rewind buffer so that read bytes are discarded and `read_bit_pos` resides in the first
+    /// byte of `buf`.
+    fn rewind_buffer(&mut self) {
+        let read_byte_pos = self.read_bit_pos / self.buf.len();
+        if read_byte_pos == 0 {
+            println!("called rewind_buffer with read_byte_pos = 0");
+            return;
+        }
+        if read_byte_pos < self.load_byte_pos {
+            for i in read_byte_pos..self.load_byte_pos {
+                self.buf[i - read_byte_pos] = self.buf[i];
+            }
+        }
+        self.read_bit_pos %= 8;
+        self.load_byte_pos -= read_byte_pos;
+    }
+
+    fn readable_bits(&self) -> usize {
+        8 * self.load_byte_pos - self.read_bit_pos
+    }
+
+    fn loadable_bits(&self) -> usize {
+        8 * (self.buf.len() - self.load_byte_pos)
+    }
+
+    fn can_read_from_current_buf(&self, n: usize) -> bool {
+        n <= self.readable_bits()
+    }
+
+    fn ensure_readable_bits(&mut self, n: usize) -> io::Result<()> {
+        if !self.can_read_from_current_buf(n) {
+            let bits_to_read = n - self.readable_bits();
+            if self.loadable_bits() < bits_to_read {
+                self.rewind_buffer();
+            }
+            self.load_bytes((bits_to_read + 7) / 8)?;
+        }
+        Ok(())
+    }
+}
+
+impl<R> Fiddler<R> {
+    pub fn get_ref(&self) -> &R {
+        &self.inner
+    }
+
+    pub fn get_mut(&mut self) -> &mut R {
+        &mut self.inner
+    }
+
+    pub fn into_inner(self) -> R {
+        self.inner
+    }
+}
