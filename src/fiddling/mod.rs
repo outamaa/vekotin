@@ -208,6 +208,20 @@ impl<R: Read> Fiddler<R> {
         Ok(result)
     }
 
+    pub fn skip_bits(&mut self, n: usize) -> io::Result<()> {
+        // TODO Might as well be possible to skip more bytes
+        assert!(n <= (self.buf.len() - 1) * 8);
+        self.ensure_readable_bits(n)?;
+        self.read_bit_pos += n;
+        Ok(())
+    }
+
+    /// Skip to next byte boundary
+    pub fn skip_to_next_byte(&mut self) -> io::Result<()> {
+        self.skip_bits((8 - (self.read_bit_pos % 8)) as usize)?;
+        Ok(())
+    }
+
     /// Load bytes from `inner` reader
     fn load_bytes(&mut self, n: usize) -> io::Result<()> {
         assert!(self.load_byte_pos + n <= self.buf.len());
@@ -240,6 +254,10 @@ impl<R: Read> Fiddler<R> {
 
     fn loadable_bits(&self) -> usize {
         8 * (self.buf.len() - self.load_byte_pos)
+    }
+
+    fn capacity_bits(&self) -> usize {
+        8 * self.buf.len()
     }
 
     fn can_read_from_current_buf(&self, n: usize) -> bool {
