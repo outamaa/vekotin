@@ -1,3 +1,5 @@
+mod static_huffman;
+
 use crate::fiddling::*;
 use anyhow::{bail, Result};
 use std::io::{Read, Write};
@@ -14,6 +16,12 @@ enum CompressionType {
 struct BlockHeader {
     is_final: bool,
     compression_type: CompressionType,
+}
+
+enum Symbol {
+    Literal(u8),
+    BackRef(u32),
+    EndOfBlock,
 }
 
 impl From<u8> for BlockHeader {
@@ -56,7 +64,7 @@ fn copy_uncompressed_block<R: Read, W: Write>(
     out_bytes: &mut W,
 ) -> Result<()> {
     bits.skip_to_next_byte();
-    // TODO: add reading u16 to Fiddler
+
     let len = bits.read_u16_le()?;
     let nlen = bits.read_u16_le()?;
 
