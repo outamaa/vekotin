@@ -1,6 +1,6 @@
-use anyhow::{Result, bail};
 use crate::fiddling::*;
-use std::io::Write;
+use anyhow::{bail, Result};
+use std::io::{Read, Write};
 
 #[derive(PartialEq, Debug)]
 enum CompressionType {
@@ -26,56 +26,61 @@ impl From<u8> for BlockHeader {
             0b01 => FixedHuffman,
             0b10 => DynamicHuffman,
             0b11 => Reserved,
-            _ => unreachable!()
+            _ => unreachable!(),
         };
         Self {
             is_final,
             compression_type,
         }
-    }    
+    }
 }
 
-// Return the three block header bits as 
-fn read_block_header(bit_idx: usize, bytes: &[u8]) -> (usize, BlockHeader) {
-    let header_bits = n_bits_by_index(bytes, 3, bit_idx, BitOrder::LSBFirst);
-    (3, BlockHeader::from(header_bits as u8))
+// Return the three block header bits as
+fn read_block_header<R: Read>(bits: &mut Fiddler<R>) -> Result<BlockHeader> {
+    let header_bits = bits.read_bits(3, BitOrder::LSBFirst)?;
+    Ok(BlockHeader::from(header_bits as u8))
 }
 
-fn copy_uncompressed_block<W: Write>(bit_idx: usize, in_bytes: &[u8], out_bytes: &mut W) -> Result<usize> {
-    let mut read_bits = 8 - bit_idx % 8;
-    let start_byte = (bit_idx + read_bits) / 8;
-    read_bits += 32; // LEN and NLEN
-    
-    let buf = [in_bytes[start_byte], in_bytes[start_byte + 1]];
-    let len = u16::from_le_bytes(buf);
-    
-    let buf = [in_bytes[start_byte + 2], in_bytes[start_byte + 3]];
-    let nlen = u16::from_le_bytes(buf);
-    
+fn copy_bytes<R: Read, W: Write>(r: &mut R, w: &mut W) -> Result<()> {
+    let mut buf = [0u8; 1024];
+    let mut bytes_written = r.read(&mut buf[..])?;
+    while bytes_written != 0 {
+        w.write_all(&buf[..bytes_written])?;
+        bytes_written = r.read(&mut buf[..])?;
+    }
+    Ok(())
+}
+
+fn copy_uncompressed_block<R: Read, W: Write>(
+    bits: &mut Fiddler<R>,
+    out_bytes: &mut W,
+) -> Result<()> {
+    bits.skip_to_next_byte();
+    // TODO: add reading u16 to Fiddler
+    let len = bits.read_u16_le()?;
+    let nlen = bits.read_u16_le()?;
+
     if len & nlen != 0 {
         bail!("LEN & NLEN != 0");
     }
 
-    let bytes_written = out_bytes.write(&in_bytes[start_byte + 4..start_byte + (len + 4) as usize])?;
-
-    Ok(read_bits + 8 * bytes_written)
+    let mut bytes_to_read = bits.get_mut().take(len as u64);
+    copy_bytes(&mut bytes_to_read, out_bytes)?;
+    Ok(())
 }
 
 pub fn decompress_blocks<W: Write>(in_bytes: &[u8], out_bytes: &mut W) -> Result<()> {
     use CompressionType::*;
-
-    let mut bit_idx = 0;
+    let mut bits = Fiddler::new(in_bytes);
     'block: loop {
-        let (read_bits, block_header) = read_block_header(bit_idx, in_bytes);
-        bit_idx = bit_idx + read_bits;
+        let block_header = read_block_header(&mut bits)?;
 
         match block_header.compression_type {
             NoCompression => {
-                let read_bits = copy_uncompressed_block(bit_idx, in_bytes, out_bytes)?;
-                bit_idx += read_bits;
-            },
+                copy_uncompressed_block(&mut bits, out_bytes)?;
+            }
             Reserved => bail!("Invalid compression type, Reserved"),
-            _ => bail!("Can't really decompress yet, sorry!")
+            _ => bail!("Can't really decompress yet, sorry!"),
         }
 
         if block_header.is_final {

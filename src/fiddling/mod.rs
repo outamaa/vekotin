@@ -1,4 +1,4 @@
-use std::io::Read;
+use std::io::{Error, ErrorKind, Read};
 use std::{cmp, io};
 
 /// # Examples
@@ -216,10 +216,27 @@ impl<R: Read> Fiddler<R> {
         Ok(())
     }
 
+    pub fn read_u16_le(&mut self) -> io::Result<u16> {
+        let buf = [self.read_next_byte()?, self.read_next_byte()?];
+        Ok(u16::from_le_bytes(buf))
+    }
+
     /// Skip to next byte boundary
     pub fn skip_to_next_byte(&mut self) -> io::Result<()> {
         self.skip_bits((8 - (self.read_bit_pos % 8)) as usize)?;
         Ok(())
+    }
+
+    /// Read next whole byte, skipping to the start of the next one if in the middle of the
+    /// current one.
+    pub fn read_next_byte(&mut self) -> io::Result<u8> {
+        if !self.is_at_byte_boundary() {
+            let _ = self.skip_to_next_byte()?;
+        }
+        self.ensure_readable_bits(8)?;
+        let byte = self.buf[self.read_bit_pos / 8];
+        self.read_bit_pos += 8;
+        Ok(byte)
     }
 
     /// Load bytes from `inner` reader
@@ -248,6 +265,10 @@ impl<R: Read> Fiddler<R> {
         self.load_byte_pos -= read_byte_pos;
     }
 
+    fn reset(&mut self) {
+        self.load_byte_pos = 0;
+        self.read_bit_pos = 0;
+    }
     fn readable_bits(&self) -> usize {
         8 * self.load_byte_pos - self.read_bit_pos
     }
@@ -264,6 +285,10 @@ impl<R: Read> Fiddler<R> {
         n <= self.readable_bits()
     }
 
+    fn is_at_byte_boundary(&self) -> bool {
+        self.read_bit_pos % 8 == 0
+    }
+
     fn ensure_readable_bits(&mut self, n: usize) -> io::Result<()> {
         if !self.can_read_from_current_buf(n) {
             let bits_to_read = n - self.readable_bits();
@@ -274,14 +299,12 @@ impl<R: Read> Fiddler<R> {
         }
         Ok(())
     }
-}
-
-impl<R> Fiddler<R> {
     pub fn get_ref(&self) -> &R {
         &self.inner
     }
 
     pub fn get_mut(&mut self) -> &mut R {
+        self.reset();
         &mut self.inner
     }
 
