@@ -75,14 +75,24 @@ pub enum BitOrder {
 /// use vekotin::fiddling::BitOrder::*;
 ///
 /// let a = fiddling::n_bits_by_index(&[0b01010101], 4, 0, LSBFirst);
-/// let b = 0b0000101;
+/// let b = 0b0101;
 /// assert_eq!(a, b,
-///            "Selecting bits from the start of a single byte, {:b} == {:b}", a, b);
+///            "Selecting bits from the start of a single byte, LSB first, {:b} == {:b}", a, b);
+///
+/// let a = fiddling::n_bits_by_index(&[0b01010101], 4, 0, MSBFirst);
+/// let b = 0b1010;
+/// assert_eq!(a, b,
+///            "Selecting bits from the start of a single byte, MSB first, {:b} == {:b}", a, b);
 ///
 /// let a = fiddling::n_bits_by_index(&[0b01010101], 4, 3, LSBFirst);
-/// let b = 0b0001010;
+/// let b = 0b1010;
 /// assert_eq!(a, b,
-///            "Selecting bits from the middle of the byte, {:b} == {:b}", a, b);
+///            "Selecting bits from the middle of the byte, LSB first, {:b} == {:b}", a, b);
+///
+/// let a = fiddling::n_bits_by_index(&[0b01010101], 4, 3, MSBFirst);
+/// let b = 0b0101;
+/// assert_eq!(a, b,
+///            "Selecting bits from the middle of the byte, MSB first, {:b} == {:b}", a, b);
 ///
 /// let a = fiddling::n_bits_by_index(&[0b01010101, 0b00110011], 8, 6, LSBFirst);
 /// let b = 0b11001101;
@@ -103,11 +113,11 @@ pub fn n_bits_by_index(bytes: &[u8], n_bits: u8, bit_idx: usize, bit_order: BitO
     // If we start from the middle of a byte
     if within_byte_idx != 0 {
         let last_n = 8 - within_byte_idx;
-
+        read_bits = first_n_bits(last_n_bits(bytes[byte_idx], last_n as u64), n as u64).into();
         if bit_order == MSBFirst {
-            read_bits = first_n_bits(reverse_bits(bytes[byte_idx]), last_n as u64) as u64;
-        } else {
-            read_bits = first_n_bits(last_n_bits(bytes[byte_idx], last_n as u64), n as u64).into();
+            read_bits = reverse_bits(read_bits as u8)
+                .checked_shr(cmp::max(8 - n as i16, 0) as u32)
+                .unwrap_or(0) as u64;
         }
         n = n - cmp::min(last_n, n);
         byte_idx = byte_idx + 1;
