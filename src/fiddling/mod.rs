@@ -97,7 +97,12 @@ pub enum BitOrder {
 /// let a = fiddling::n_bits_by_index(&[0b01010101, 0b00110011], 8, 6, LSBFirst);
 /// let b = 0b11001101;
 /// assert_eq!(a, b,
-///            "Selecting bits from two contiguous bytes, {:b} == {:b}", a, b);
+///            "Selecting bits from two contiguous bytes, LSB first, {:b} == {:b}", a, b);
+///
+/// let a = fiddling::n_bits_by_index(&[0b01010101, 0b00110011], 8, 6, MSBFirst);
+/// let b = 0b10110011;
+/// assert_eq!(a, b,
+///            "Selecting bits from two contiguous bytes, MSB first, {:b} == {:b}", a, b);
 /// ```
 pub fn n_bits_by_index(bytes: &[u8], n_bits: u8, bit_idx: usize, bit_order: BitOrder) -> u64 {
     use BitOrder::*;
@@ -113,31 +118,27 @@ pub fn n_bits_by_index(bytes: &[u8], n_bits: u8, bit_idx: usize, bit_order: BitO
     // If we start from the middle of a byte
     if within_byte_idx != 0 {
         let last_n = 8 - within_byte_idx;
-        read_bits = first_n_bits(last_n_bits(bytes[byte_idx], last_n as u64), n as u64).into();
+        let n_bits_read = cmp::min(last_n, n);
+        read_bits = first_n_bits(last_n_bits(bytes[byte_idx], last_n as u64), n as u64) as u64;
         if bit_order == MSBFirst {
-            read_bits = reverse_bits(read_bits as u8)
-                .checked_shr(cmp::max(8 - n as i16, 0) as u32)
-                .unwrap_or(0) as u64;
+            read_bits = last_n_bits(reverse_bits(read_bits as u8), n_bits_read as u64) as u64;
         }
-        n = n - cmp::min(last_n, n);
+        n -= n_bits_read;
         byte_idx = byte_idx + 1;
     }
 
     // Loop through whole bytes possibly truncating the final bits of the last one
     while n > 0 {
+        let n_bits_read = cmp::min(n, 8);
         if bit_order == MSBFirst {
-            read_bits =
-                read_bits * 256 + last_n_bits(reverse_bits(bytes[byte_idx]), n as u64) as u64;
+            read_bits = read_bits << n_bits_read
+                | last_n_bits(reverse_bits(bytes[byte_idx]), n_bits_read as u64) as u64;
         } else {
-            let shift_bits = n_bits - n;
-            read_bits =
-                read_bits + ((first_n_bits(bytes[byte_idx], n as u64) as u64) << shift_bits);
+            read_bits = read_bits
+                + ((first_n_bits(bytes[byte_idx], n_bits_read as u64) as u64) << (n_bits - n));
         }
 
-        n = cmp::max(n, 8) - 8;
-        if n == 0 {
-            break;
-        }
+        n -= n_bits_read;
         byte_idx = byte_idx + 1;
     }
     read_bits
@@ -185,6 +186,20 @@ pub fn n_bits_by_index(bytes: &[u8], n_bits: u8, bit_idx: usize, bit_order: BitO
 /// assert_eq!(f.peek_bits(8, LSBFirst).unwrap(), f.peek_bits(8, LSBFirst).unwrap());
 /// assert_eq!(f.peek_bits(9, LSBFirst).unwrap(), f.peek_bits(9, LSBFirst).unwrap());
 /// assert!(f.peek_bits(16, LSBFirst).err().is_some());
+///
+/// f = Fiddler::new(&bytes[..]);
+/// assert_eq!(f.read_bits(3, LSBFirst).unwrap(), 0b101);
+/// assert_eq!(f.read_bits(3, LSBFirst).unwrap(), 0b010);
+/// assert_eq!(f.read_bits(3, LSBFirst).unwrap(), 0b101);
+/// assert_eq!(f.read_bits(3, LSBFirst).unwrap(), 0b001);
+/// assert_eq!(f.read_bits(3, LSBFirst).unwrap(), 0b011);
+///
+/// f = Fiddler::new(&bytes[..]);
+/// assert_eq!(f.read_bits(3, MSBFirst).unwrap(), 0b101);
+/// assert_eq!(f.read_bits(3, MSBFirst).unwrap(), 0b010);
+/// assert_eq!(f.read_bits(3, MSBFirst).unwrap(), 0b101);
+/// //assert_eq!(f.read_bits(3, MSBFirst).unwrap(), 0b100);
+/// //assert_eq!(f.read_bits(3, MSBFirst).unwrap(), 0b110);
 /// ```
 pub struct Fiddler<R> {
     inner: R,
