@@ -1,6 +1,8 @@
 mod dynamic_huffman;
 mod fixed_huffman;
 
+pub use dynamic_huffman::HuffmanAlphabet;
+
 use crate::fiddling::*;
 use anyhow::{bail, Result};
 use std::io::{Read, Write};
