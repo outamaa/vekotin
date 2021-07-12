@@ -198,8 +198,8 @@ pub fn n_bits_by_index(bytes: &[u8], n_bits: u8, bit_idx: usize, bit_order: BitO
 /// assert_eq!(f.read_bits(3, MSBFirst).unwrap(), 0b101);
 /// assert_eq!(f.read_bits(3, MSBFirst).unwrap(), 0b010);
 /// assert_eq!(f.read_bits(3, MSBFirst).unwrap(), 0b101);
-/// //assert_eq!(f.read_bits(3, MSBFirst).unwrap(), 0b100);
-/// //assert_eq!(f.read_bits(3, MSBFirst).unwrap(), 0b110);
+/// assert_eq!(f.read_bits(3, MSBFirst).unwrap(), 0b100);
+/// assert_eq!(f.read_bits(3, MSBFirst).unwrap(), 0b110);
 /// ```
 pub struct Fiddler<R> {
     inner: R,
@@ -276,7 +276,7 @@ impl<R: Read> Fiddler<R> {
     /// Rewind buffer so that read bytes are discarded and `read_bit_pos` resides in the first
     /// byte of `buf`.
     fn rewind_buffer(&mut self) {
-        let read_byte_pos = self.read_bit_pos / self.buf.len();
+        let read_byte_pos = self.read_bit_pos / 8;
         if read_byte_pos == 0 {
             println!("called rewind_buffer with read_byte_pos = 0");
             return;
