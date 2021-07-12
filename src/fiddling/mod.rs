@@ -147,11 +147,11 @@ pub fn n_bits_by_index(bytes: &[u8], n_bits: u8, bit_idx: usize, bit_order: BitO
 /// # Examples
 ///
 /// ```rust
-/// use vekotin::fiddling::Fiddler;
+/// use vekotin::fiddling::BitStream;
 /// use vekotin::fiddling::BitOrder::*;
 ///
 /// let bytes: [u8; 2] = [0b01010101, 0b00110011];
-/// let mut f = Fiddler::new(&bytes[..]);
+/// let mut f = BitStream::new(&bytes[..]);
 ///
 /// assert_eq!(f.peek_bits(0, MSBFirst).unwrap(), f.peek_bits(0, MSBFirst).unwrap());
 /// assert_eq!(f.peek_bits(1, MSBFirst).unwrap(), f.peek_bits(1, MSBFirst).unwrap());
@@ -187,30 +187,30 @@ pub fn n_bits_by_index(bytes: &[u8], n_bits: u8, bit_idx: usize, bit_order: BitO
 /// assert_eq!(f.peek_bits(9, LSBFirst).unwrap(), f.peek_bits(9, LSBFirst).unwrap());
 /// assert!(f.peek_bits(16, LSBFirst).err().is_some());
 ///
-/// f = Fiddler::new(&bytes[..]);
+/// f = BitStream::new(&bytes[..]);
 /// assert_eq!(f.read_bits(3, LSBFirst).unwrap(), 0b101);
 /// assert_eq!(f.read_bits(3, LSBFirst).unwrap(), 0b010);
 /// assert_eq!(f.read_bits(3, LSBFirst).unwrap(), 0b101);
 /// assert_eq!(f.read_bits(3, LSBFirst).unwrap(), 0b001);
 /// assert_eq!(f.read_bits(3, LSBFirst).unwrap(), 0b011);
 ///
-/// f = Fiddler::new(&bytes[..]);
+/// f = BitStream::new(&bytes[..]);
 /// assert_eq!(f.read_bits(3, MSBFirst).unwrap(), 0b101);
 /// assert_eq!(f.read_bits(3, MSBFirst).unwrap(), 0b010);
 /// assert_eq!(f.read_bits(3, MSBFirst).unwrap(), 0b101);
 /// assert_eq!(f.read_bits(3, MSBFirst).unwrap(), 0b100);
 /// assert_eq!(f.read_bits(3, MSBFirst).unwrap(), 0b110);
 /// ```
-pub struct Fiddler<R> {
+pub struct BitStream<R> {
     inner: R,
     buf: [u8; 5], // 64 bits (ought to be enough for everybody) + one extra byte
     read_bit_pos: usize,
     load_byte_pos: usize,
 }
 /// A reader for reading a byte stream on a bit basis,
-impl<R: Read> Fiddler<R> {
-    pub fn new(inner: R) -> Fiddler<R> {
-        Fiddler {
+impl<R: Read> BitStream<R> {
+    pub fn new(inner: R) -> BitStream<R> {
+        BitStream {
             inner,
             buf: [0; 5],
             read_bit_pos: 0,

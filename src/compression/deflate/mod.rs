@@ -47,7 +47,7 @@ impl From<u8> for BlockHeader {
 }
 
 // Return the three block header bits as
-fn read_block_header<R: Read>(bits: &mut Fiddler<R>) -> Result<BlockHeader> {
+fn read_block_header<R: Read>(bits: &mut BitStream<R>) -> Result<BlockHeader> {
     let header_bits = bits.read_bits(3, BitOrder::LSBFirst)?;
     Ok(BlockHeader::from(header_bits as u8))
 }
@@ -63,7 +63,7 @@ fn copy_bytes<R: Read, W: Write>(r: &mut R, w: &mut W) -> Result<()> {
 }
 
 fn copy_uncompressed_block<R: Read, W: Write>(
-    bits: &mut Fiddler<R>,
+    bits: &mut BitStream<R>,
     out_bytes: &mut W,
 ) -> Result<()> {
     bits.skip_to_next_byte();
@@ -82,7 +82,7 @@ fn copy_uncompressed_block<R: Read, W: Write>(
 
 pub fn decompress_blocks<W: Write>(in_bytes: &[u8], out_bytes: &mut W) -> Result<()> {
     use CompressionType::*;
-    let mut bits = Fiddler::new(in_bytes);
+    let mut bits = BitStream::new(in_bytes);
     'block: loop {
         let block_header = read_block_header(&mut bits)?;
 
