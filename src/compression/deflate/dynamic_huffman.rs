@@ -1,5 +1,3 @@
-use crate::compression::deflate::dynamic_huffman::DeflateSymbol::{EndOfData, LengthAndDistance};
-use crate::compression::deflate::Symbol::Literal;
 use crate::fiddling::BitOrder::{LSBFirst, MSBFirst};
 use crate::fiddling::BitStream;
 use anyhow::{bail, Result};
@@ -257,6 +255,8 @@ fn read_deflate_symbol<R: Read>(
     literal_alphabet: &HuffmanAlphabet<u16>,
     distance_alphabet: &HuffmanAlphabet<u16>,
 ) -> Result<DeflateSymbol> {
+    use DeflateSymbol::*;
+
     let raw_symbol = literal_alphabet.read_next(bits)?;
     match raw_symbol {
         0..=255 => Ok(Literal(raw_symbol as u8)),
@@ -266,7 +266,7 @@ fn read_deflate_symbol<R: Read>(
             raw_symbol,
             distance_alphabet,
         )?),
-        _ => bail!("Invalid Deflate symbol {}", u16),
+        _ => bail!("Invalid Deflate symbol {}", raw_symbol),
     }
 }
 
@@ -275,6 +275,8 @@ fn read_length_and_distance<R: Read>(
     length_symbol: u16,
     distance_alphabet: &HuffmanAlphabet<u16>,
 ) -> Result<DeflateSymbol> {
+    use DeflateSymbol::*;
+
     let symbol = match length_symbol {
         257..=264 => {
             let length = length_symbol - 254;
@@ -282,32 +284,34 @@ fn read_length_and_distance<R: Read>(
             LengthAndDistance(length, distance)
         }
         265..=268 => {
-            read_length_and_distance_by_extra_bits(bits, length_symbol, 1, 265, distance_alphabet)
+            read_length_and_distance_by_extra_bits(bits, length_symbol, 1, 265, distance_alphabet)?
         }
         269..=272 => {
-            read_length_and_distance_by_extra_bits(bits, length_symbol, 2, 269, distance_alphabet)
+            read_length_and_distance_by_extra_bits(bits, length_symbol, 2, 269, distance_alphabet)?
         }
         273..=276 => {
-            read_length_and_distance_by_extra_bits(bits, length_symbol, 3, 273, distance_alphabet)
+            read_length_and_distance_by_extra_bits(bits, length_symbol, 3, 273, distance_alphabet)?
         }
         _ => bail!("Invalide length symbol {}", length_symbol),
     };
     Ok(symbol)
 }
 
-fn read_length_and_distance_by_extra_bits(
+fn read_length_and_distance_by_extra_bits<R: Read>(
     bits: &mut BitStream<R>,
     length_symbol: u16,
     extra_bits: usize,
     extra_bit_start: u16,
     distance_alphabet: &HuffmanAlphabet<u16>,
-) -> DeflateSymbol {
-    let length = bits.read_bits(extra_bits, MSBFirst) as u16
+) -> Result<DeflateSymbol> {
+    use DeflateSymbol::*;
+
+    let length = bits.read_bits(extra_bits, MSBFirst)? as u16
         + 3
-        + 8 * extra_bits
-        + (length_symbol - extra_bit_start) * 2.pow(extra_bits as u32);
+        + 8 * extra_bits as u16
+        + (length_symbol - extra_bit_start) * 2_u16.pow(extra_bits as u32);
     let distance = read_distance(bits, distance_alphabet)?;
-    LengthAndDistance(length, distance)
+    Ok(LengthAndDistance(length, distance))
 }
 
 fn read_distance<R: Read>(
