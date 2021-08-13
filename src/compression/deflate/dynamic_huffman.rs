@@ -26,7 +26,8 @@ pub struct HuffmanAlphabet<S: Copy + Ord> {
 
 impl<S: Copy + Ord> HuffmanAlphabet<S> {
     pub fn from_code_lengths(code_lengths: &[(S, u8)]) -> Self {
-        let max_code_length = *code_lengths.iter().map(|(_, len)| len).max().unwrap();
+        let non_zero_code_lengths = code_lengths.iter().filter(|&(_, length)| *length > 0);
+        let max_code_length = *non_zero_code_lengths.map(|(_, len)| len).max().unwrap();
         assert!(max_code_length < 16);
         let mut tree = <HuffmanAlphabet<S>>::assign_codes(code_lengths, max_code_length);
 
@@ -225,29 +226,9 @@ pub fn extract_alphabet<R: Read>(
     println!("hlit = {}", alphabet_size);
     while (cl_symbol as usize) < alphabet_size {
         match ExtractAction::from_bit_stream(bits, cl_alphabet)? {
-            // 0 => {
-            //     println!("literal {}, length {}", cl_symbol, s);
-            //     cl_symbol += 1;
-            // }
-            // 1..=15 => {
-            //     println!("literal {}, length {}", cl_symbol, s);
-            //     literal_code_lengths.push((cl_symbol, s));
-            //     cl_symbol += 1;
-            // }
-            // 16 => {
-            //     copy_last_length(bits, &mut literal_code_lengths, &mut cl_symbol)?;
-            // }
-            // 17 => {
-            //     repeat_zero(bits, &mut literal_code_lengths, &mut cl_symbol, 3, 3)?;
-            // }
-            // 18 => {
-            //     repeat_zero(bits, &mut literal_code_lengths, &mut cl_symbol, 7, 11)?;
-            // }
-            // _ => bail!("Invalid literal code length symbol: {}", s),
             ExtractAction::CodeLength(length) => {
-                if length > 0 {
-                    literal_code_lengths.push((cl_symbol, length));
-                }
+                println!("code length {}", length);
+                literal_code_lengths.push((cl_symbol, length));
                 cl_symbol += 1;
             }
             ExtractAction::CopyLastLength(times) => {
