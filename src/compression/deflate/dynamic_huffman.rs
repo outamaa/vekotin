@@ -63,12 +63,12 @@ impl<S: Copy + Ord> HuffmanAlphabet<S> {
     /// let code_lengths = [('A', 3u8), ('B', 3), ('C', 3), ('D', 3), ('E', 3), ('F', 2), ('G', 4), ('H', 4)];
     ///
     /// let alphabet = HuffmanAlphabet::from_code_lengths(&code_lengths[..]);
-    /// assert_eq!(alphabet.lookup(0b0000), Some('F'));
-    /// assert_eq!(alphabet.lookup(0b0001), Some('F'));
-    /// assert_eq!(alphabet.lookup(0b0010), Some('F'));
-    /// assert_eq!(alphabet.lookup(0b0011), Some('F'));
-    /// assert_eq!(alphabet.lookup(0b0100), Some('A'));
-    /// assert_eq!(alphabet.lookup(0b1111), Some('H'));
+    /// assert_eq!(alphabet.lookup(0b0000).unwrap(), 'F');
+    /// assert_eq!(alphabet.lookup(0b0001).unwrap(), 'F');
+    /// assert_eq!(alphabet.lookup(0b0010).unwrap(), 'F');
+    /// assert_eq!(alphabet.lookup(0b0011).unwrap(), 'F');
+    /// assert_eq!(alphabet.lookup(0b0100).unwrap(), 'A');
+    /// assert_eq!(alphabet.lookup(0b1111).unwrap(), 'H');
     /// ```
     pub fn lookup(&self, code: u16) -> Option<S> {
         assert!(code <= self.max_lut_code);
@@ -99,10 +99,9 @@ impl<S: Copy + Ord> HuffmanAlphabet<S> {
     /// let alphabet = HuffmanAlphabet::from_code_lengths(&code_lengths[..]);
     /// let encoded = [0b11110111u8, 0b10111000];
     /// let mut bits = BitStream::new(&encoded[..]);
-    /// assert_eq!(alphabet.read_next(&mut bits).unwrap(), Some('G'));
-    /// assert_eq!(alphabet.read_next(&mut bits).unwrap(), Some('H'));
+    /// assert_eq!(alphabet.read_next(&mut bits).unwrap(), 'G');
+    /// assert_eq!(alphabet.read_next(&mut bits).unwrap(), 'H');
     /// ```
-
     pub fn read_next<R: Read>(&self, bits: &mut BitStream<R>) -> Result<S> {
         let code = bits.peek_bits(self.max_code_length as usize, MSBFirst)? as u16;
         assert!(code <= self.max_lut_code);
