@@ -10,8 +10,15 @@ const CODE_LENGTH_ALPHABET_INDICES: [usize; 19] = [
 ];
 
 #[derive(Clone, Debug, PartialEq)]
+struct SymbolEntry<S: Copy + Ord> {
+    symbol: S,
+    length: u8,
+    code: u16,
+}
+
+#[derive(Clone, Debug, PartialEq)]
 pub struct HuffmanAlphabet<S: Copy + Ord> {
-    tree: Vec<(S, u8, u16)>,
+    tree: Vec<SymbolEntry<S>>,
     lut: Vec<Option<usize>>,
     max_lut_code: u16,
     max_code_length: u8,
@@ -24,14 +31,14 @@ impl<S: Copy + Ord> HuffmanAlphabet<S> {
         let mut tree = <HuffmanAlphabet<S>>::assign_codes(code_lengths, max_code_length);
 
         // Build lookup table
-        tree.sort_by(|a, b| a.2.cmp(&b.2));
+        tree.sort_by(|a, b| a.code.cmp(&b.code));
         let mut lut: Vec<Option<usize>> = vec![None; 2usize.pow(max_code_length as u32)];
 
         for tree_idx in 0..tree.len() {
-            let symbol_entry = tree[tree_idx];
-            let shift_by = max_code_length - symbol_entry.1;
-            let lut_segment_start = (symbol_entry.2 << shift_by) as usize;
-            let lut_segment_end = ((symbol_entry.2 + 1) << shift_by) as usize;
+            let symbol_entry = &tree[tree_idx];
+            let shift_by = max_code_length - symbol_entry.length;
+            let lut_segment_start = (symbol_entry.code << shift_by) as usize;
+            let lut_segment_end = ((symbol_entry.code + 1) << shift_by) as usize;
             for lut_idx in lut_segment_start..lut_segment_end {
                 lut[lut_idx] = Some(tree_idx);
             }
@@ -74,7 +81,7 @@ impl<S: Copy + Ord> HuffmanAlphabet<S> {
         assert!(code <= self.max_lut_code);
         match self.lut[code as usize] {
             None => None,
-            Some(tree_idx) => Some(self.tree[tree_idx].0),
+            Some(tree_idx) => Some(self.tree[tree_idx].symbol),
         }
     }
 
@@ -101,6 +108,8 @@ impl<S: Copy + Ord> HuffmanAlphabet<S> {
     /// let mut bits = BitStream::new(&encoded[..]);
     /// assert_eq!(alphabet.read_next(&mut bits).unwrap(), 'G');
     /// assert_eq!(alphabet.read_next(&mut bits).unwrap(), 'H');
+    /// assert_eq!(alphabet.read_next(&mut bits).unwrap(), 'F');
+    /// assert_eq!(alphabet.read_next(&mut bits).unwrap(), 'B');
     /// ```
     pub fn read_next<R: Read>(&self, bits: &mut BitStream<R>) -> Result<S> {
         let code = bits.peek_bits(self.max_code_length as usize, MSBFirst)? as u16;
@@ -108,14 +117,14 @@ impl<S: Copy + Ord> HuffmanAlphabet<S> {
         match self.lut[code as usize] {
             None => bail!("Couldn't find match in lut for code {:b}", code),
             Some(tree_idx) => {
-                let entry = self.tree[tree_idx];
-                bits.skip_bits(entry.1 as usize);
-                Ok(self.tree[tree_idx].0)
+                let entry = &self.tree[tree_idx];
+                bits.skip_bits(entry.length as usize);
+                Ok(self.tree[tree_idx].symbol)
             }
         }
     }
 
-    fn assign_codes(code_lengths: &[(S, u8)], max_code_length: u8) -> Vec<(S, u8, u16)> {
+    fn assign_codes(code_lengths: &[(S, u8)], max_code_length: u8) -> Vec<SymbolEntry<S>> {
         let mut bl_count = vec![0; max_code_length as usize + 1];
         code_lengths.iter().for_each(|&(_, x)| {
             bl_count[x as usize] += 1;
@@ -129,13 +138,19 @@ impl<S: Copy + Ord> HuffmanAlphabet<S> {
             next_code[bits] = code;
         }
 
-        let mut tree: Vec<(S, u8, u16)> =
-            code_lengths.iter().map(|&(s, len)| (s, len, 0)).collect();
+        let mut tree: Vec<SymbolEntry<S>> = code_lengths
+            .iter()
+            .map(|&(s, len)| SymbolEntry {
+                symbol: s,
+                length: len,
+                code: 0,
+            })
+            .collect();
 
         for n in 0..tree.len() {
-            let len = tree[n].1;
+            let len = tree[n].length;
             if len != 0 {
-                tree[n].2 = next_code[len as usize];
+                tree[n].code = next_code[len as usize];
                 next_code[len as usize] += 1;
             }
         }
@@ -168,7 +183,7 @@ pub fn copy_dynamic_huffman_block<R: Read, W: Write>(
     Ok(())
 }
 
-fn extract_alphabet<R: Read>(
+pub fn extract_alphabet<R: Read>(
     bits: &mut BitStream<R>,
     alphabet_size: usize,
     cl_alphabet: &HuffmanAlphabet<u8>,
