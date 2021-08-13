@@ -183,6 +183,38 @@ pub fn copy_dynamic_huffman_block<R: Read, W: Write>(
     Ok(())
 }
 
+enum ExtractAction {
+    CodeLength(u8),
+    CopyLastLength(u8),
+    RepeatZero(u8),
+}
+
+impl ExtractAction {
+    fn from_bit_stream<R: Read>(
+        bits: &mut BitStream<R>,
+        alphabet: &HuffmanAlphabet<u8>,
+    ) -> Result<ExtractAction> {
+        use ExtractAction::*;
+        let s = alphabet.read_next(bits)?;
+        match s {
+            0..=15 => Ok(CodeLength(s as u8)),
+            16 => {
+                let copy_times = bits.read_bits(2, LSBFirst)? + 3;
+                Ok(CopyLastLength(copy_times as u8))
+            }
+            17 => {
+                let zero_times = bits.read_bits(3, LSBFirst)? + 3;
+                Ok(RepeatZero(zero_times as u8))
+            }
+            18 => {
+                let zero_times = bits.read_bits(7, LSBFirst)? + 11;
+                Ok(RepeatZero(zero_times as u8))
+            }
+            _ => bail!("Invalid literal code length symbol: {}", s),
+        }
+    }
+}
+
 pub fn extract_alphabet<R: Read>(
     bits: &mut BitStream<R>,
     alphabet_size: usize,
@@ -192,27 +224,38 @@ pub fn extract_alphabet<R: Read>(
     let mut cl_symbol: u16 = 0;
     println!("hlit = {}", alphabet_size);
     while (cl_symbol as usize) < alphabet_size {
-        let s = cl_alphabet.read_next(bits)?;
-        match s {
-            0 => {
-                println!("literal {}, length {}", cl_symbol, s);
+        match ExtractAction::from_bit_stream(bits, cl_alphabet)? {
+            // 0 => {
+            //     println!("literal {}, length {}", cl_symbol, s);
+            //     cl_symbol += 1;
+            // }
+            // 1..=15 => {
+            //     println!("literal {}, length {}", cl_symbol, s);
+            //     literal_code_lengths.push((cl_symbol, s));
+            //     cl_symbol += 1;
+            // }
+            // 16 => {
+            //     copy_last_length(bits, &mut literal_code_lengths, &mut cl_symbol)?;
+            // }
+            // 17 => {
+            //     repeat_zero(bits, &mut literal_code_lengths, &mut cl_symbol, 3, 3)?;
+            // }
+            // 18 => {
+            //     repeat_zero(bits, &mut literal_code_lengths, &mut cl_symbol, 7, 11)?;
+            // }
+            // _ => bail!("Invalid literal code length symbol: {}", s),
+            ExtractAction::CodeLength(length) => {
+                if length > 0 {
+                    literal_code_lengths.push((cl_symbol, length));
+                }
                 cl_symbol += 1;
             }
-            1..=15 => {
-                println!("literal {}, length {}", cl_symbol, s);
-                literal_code_lengths.push((cl_symbol, s));
-                cl_symbol += 1;
+            ExtractAction::CopyLastLength(times) => {
+                copy_last_length(times, &mut literal_code_lengths, &mut cl_symbol)?;
             }
-            16 => {
-                copy_last_length(bits, &mut literal_code_lengths, &mut cl_symbol)?;
+            ExtractAction::RepeatZero(times) => {
+                repeat_zero(times, &mut literal_code_lengths, &mut cl_symbol)?;
             }
-            17 => {
-                repeat_zero(bits, &mut literal_code_lengths, &mut cl_symbol, 3, 3)?;
-            }
-            18 => {
-                repeat_zero(bits, &mut literal_code_lengths, &mut cl_symbol, 7, 11)?;
-            }
-            _ => bail!("Invalid literal code length symbol: {}", s),
         }
     }
     // TODO: Either there's a bug in the above code or it's valid to tell to repeat zeros over
@@ -222,18 +265,17 @@ pub fn extract_alphabet<R: Read>(
     Ok(HuffmanAlphabet::from_code_lengths(&literal_code_lengths))
 }
 
-fn copy_last_length<R: Read>(
-    bits: &mut BitStream<R>,
+fn copy_last_length(
+    times: u8,
     literal_code_lengths: &mut Vec<(u16, u8)>,
     cl_symbol: &mut u16,
 ) -> Result<()> {
-    let copy_times = bits.read_bits(2, LSBFirst)? + 3;
     let last_code = literal_code_lengths.last();
-    println!("repeat {:?} {} times", last_code, copy_times);
+    println!("repeat {:?} {} times", last_code, times);
     match last_code {
         None => bail!("No last element in literal_code_lengths"),
         Some(&c) => {
-            for _ in 0..copy_times {
+            for _ in 0..times {
                 literal_code_lengths.push(c);
                 *cl_symbol += 1;
             }
@@ -242,18 +284,15 @@ fn copy_last_length<R: Read>(
     }
 }
 
-fn repeat_zero<R: Read>(
-    bits: &mut BitStream<R>,
+fn repeat_zero(
+    times: u8,
     literal_code_lengths: &mut Vec<(u16, u8)>,
     cl_symbol: &mut u16,
-    n_bits: usize,
-    copy_start: u64,
 ) -> Result<()> {
-    let zero_times = bits.read_bits(n_bits, LSBFirst)? + copy_start;
-    println!("repeat zero {} times", zero_times);
+    println!("repeat zero {} times", times);
     // add one to handle repeats
     literal_code_lengths.push((*cl_symbol, 0));
-    *cl_symbol += zero_times as u16;
+    *cl_symbol += times as u16;
 
     Ok(())
 }
