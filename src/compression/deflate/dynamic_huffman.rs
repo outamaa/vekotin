@@ -24,12 +24,21 @@ pub struct HuffmanAlphabet<S: Copy + Ord> {
     max_code_length: u8,
 }
 
-impl<S: Copy + Ord> HuffmanAlphabet<S> {
+impl<'a, S: 'a + Copy + Ord> HuffmanAlphabet<S> {
     pub fn from_code_lengths(code_lengths: &[(S, u8)]) -> Self {
-        let non_zero_code_lengths = code_lengths.iter().filter(|&(_, length)| *length > 0);
-        let max_code_length = *non_zero_code_lengths.map(|(_, len)| len).max().unwrap();
+        let max_code_length = *code_lengths
+            .iter()
+            .filter(|&(_, length)| *length > 0)
+            .map(|(_, len)| len)
+            .max()
+            .unwrap();
         assert!(max_code_length < 16);
-        let mut tree = <HuffmanAlphabet<S>>::assign_codes(code_lengths, max_code_length);
+        let non_zero_code_lengths: Vec<(S, u8)> = code_lengths
+            .iter()
+            .filter(|&(_, length)| *length > 0)
+            .cloned()
+            .collect();
+        let mut tree = <HuffmanAlphabet<S>>::assign_codes(&non_zero_code_lengths, max_code_length);
 
         // Build lookup table
         tree.sort_by(|a, b| a.code.cmp(&b.code));
@@ -125,7 +134,7 @@ impl<S: Copy + Ord> HuffmanAlphabet<S> {
         }
     }
 
-    fn assign_codes(code_lengths: &[(S, u8)], max_code_length: u8) -> Vec<SymbolEntry<S>> {
+    fn assign_codes(code_lengths: &Vec<(S, u8)>, max_code_length: u8) -> Vec<SymbolEntry<S>> {
         let mut bl_count = vec![0; max_code_length as usize + 1];
         code_lengths.iter().for_each(|&(_, x)| {
             bl_count[x as usize] += 1;
@@ -239,8 +248,6 @@ pub fn extract_alphabet<R: Read>(
             }
         }
     }
-    // TODO: Either there's a bug in the above code or it's valid to tell to repeat zeros over
-    // the alphabet size. Check that there are no more code lengths than given in header
     println!("cl_symbol at end {}", cl_symbol);
 
     Ok(HuffmanAlphabet::from_code_lengths(&literal_code_lengths))
@@ -304,6 +311,15 @@ fn read_deflate_symbol<R: Read>(
     }
 }
 
+static LENGTH_EXTRA_BITS: [u8; 29] = [
+    0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0,
+];
+
+static BASE_LENGTH: [u8; 29] = [
+    3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131,
+    163, 195, 227, 258,
+];
+
 fn read_length_and_distance<R: Read>(
     bits: &mut BitStream<R>,
     length_symbol: u16,
@@ -326,7 +342,7 @@ fn read_length_and_distance<R: Read>(
         273..=276 => {
             read_length_and_distance_by_extra_bits(bits, length_symbol, 3, 273, distance_alphabet)?
         }
-        _ => bail!("Invalide length symbol {}", length_symbol),
+        _ => bail!("Invalid length symbol {}", length_symbol),
     };
     Ok(symbol)
 }
@@ -348,12 +364,27 @@ fn read_length_and_distance_by_extra_bits<R: Read>(
     Ok(LengthAndDistance(length, distance))
 }
 
+static DISTANCE_EXTRA_BITS: [u8; 30] = [
+    0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13,
+    13,
+];
+
+static BASE_DISTANCE: [u16; 30] = [
+    1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537,
+    2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577,
+];
+
 fn read_distance<R: Read>(
     bits: &mut BitStream<R>,
     distance_alphabet: &HuffmanAlphabet<u16>,
 ) -> Result<u16> {
     let raw_distance = distance_alphabet.read_next(bits)?;
     match raw_distance {
-        _ => todo!(),
+        0..=3 => Ok(raw_distance + 1),
+        _ => {
+            let extra_bits = DISTANCE_EXTRA_BITS[raw_distance as usize];
+            let base_distance = BASE_DISTANCE[raw_distance as usize];
+            Ok(base_distance + bits.read_bits(extra_bits as usize, MSBFirst)? as u16)
+        }
     }
 }
