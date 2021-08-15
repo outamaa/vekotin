@@ -315,7 +315,7 @@ static LENGTH_EXTRA_BITS: [u8; 29] = [
     0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0,
 ];
 
-static BASE_LENGTH: [u8; 29] = [
+static BASE_LENGTH: [u16; 29] = [
     3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131,
     163, 195, 227, 258,
 ];
@@ -327,40 +327,13 @@ fn read_length_and_distance<R: Read>(
 ) -> Result<DeflateSymbol> {
     use DeflateSymbol::*;
 
-    let symbol = match length_symbol {
-        257..=264 => {
-            let length = length_symbol - 254;
-            let distance = read_distance(bits, distance_alphabet)?;
-            LengthAndDistance(length, distance)
-        }
-        265..=268 => {
-            read_length_and_distance_by_extra_bits(bits, length_symbol, 1, 265, distance_alphabet)?
-        }
-        269..=272 => {
-            read_length_and_distance_by_extra_bits(bits, length_symbol, 2, 269, distance_alphabet)?
-        }
-        273..=276 => {
-            read_length_and_distance_by_extra_bits(bits, length_symbol, 3, 273, distance_alphabet)?
-        }
-        _ => bail!("Invalid length symbol {}", length_symbol),
-    };
-    Ok(symbol)
-}
+    // TODO look this through
+    let extra_bits = LENGTH_EXTRA_BITS[(length_symbol - 257) as usize];
+    let base_length = BASE_LENGTH[(length_symbol - 257) as usize];
+    let length = base_length + bits.read_bits(extra_bits as usize, MSBFirst)? as u16;
 
-fn read_length_and_distance_by_extra_bits<R: Read>(
-    bits: &mut BitStream<R>,
-    length_symbol: u16,
-    extra_bits: usize,
-    extra_bit_start: u16,
-    distance_alphabet: &HuffmanAlphabet<u16>,
-) -> Result<DeflateSymbol> {
-    use DeflateSymbol::*;
-
-    let length = bits.read_bits(extra_bits, MSBFirst)? as u16
-        + 3
-        + 8 * extra_bits as u16
-        + (length_symbol - extra_bit_start) * 2_u16.pow(extra_bits as u32);
     let distance = read_distance(bits, distance_alphabet)?;
+
     Ok(LengthAndDistance(length, distance))
 }
 
