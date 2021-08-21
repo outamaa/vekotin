@@ -24,6 +24,75 @@ pub struct HuffmanAlphabet<S: Copy + Ord> {
     max_code_length: u8,
 }
 
+impl HuffmanAlphabet<u16> {
+    /// Return static alphabet defined in RFC-1951
+    pub fn static_alphabet() -> Self {
+        let tree: Vec<SymbolEntry<u16>> = (0..144)
+            .zip(0b00110000..0b10111111)
+            .map(|(symbol, code)| SymbolEntry {
+                symbol,
+                length: 8,
+                code,
+            })
+            .chain(
+                (144u16..256)
+                    .zip(0b11010000u16..0b11111111)
+                    .map(|(symbol, code)| SymbolEntry {
+                        symbol,
+                        length: 9,
+                        code,
+                    }),
+            )
+            .chain(
+                (256u16..280)
+                    .zip(0b0000000u16..0b0010111)
+                    .map(|(symbol, code)| SymbolEntry {
+                        symbol,
+                        length: 7,
+                        code,
+                    }),
+            )
+            .chain(
+                (280u16..288)
+                    .zip(0b11000000u16..0b11000111)
+                    .map(|(symbol, code)| SymbolEntry {
+                        symbol,
+                        length: 8,
+                        code,
+                    }),
+            )
+            .collect();
+        let mut lut: Vec<Option<usize>> = vec![None; 2usize.pow(9)];
+        for (i, symbol_entry) in tree.iter().enumerate() {
+            match symbol_entry.length {
+                9 => {
+                    lut[symbol_entry.code as usize] = Some(i);
+                }
+                8 => {
+                    let lut_idx = (symbol_entry.code as usize) << 1;
+                    lut[lut_idx] = Some(i);
+                    lut[lut_idx + 1] = Some(i);
+                }
+                7 => {
+                    let lut_idx = (symbol_entry.code as usize) << 2;
+                    lut[lut_idx] = Some(i);
+                    lut[lut_idx + 1] = Some(i);
+                    lut[lut_idx + 2] = Some(i);
+                    lut[lut_idx + 3] = Some(i);
+                }
+                other => panic!("Did not expect length {}", other),
+            }
+        }
+
+        HuffmanAlphabet {
+            tree,
+            lut,
+            max_lut_code: 0b111111111,
+            max_code_length: 9,
+        }
+    }
+}
+
 impl<'a, S: 'a + Copy + Ord> HuffmanAlphabet<S> {
     pub fn from_code_lengths(code_lengths: &[(S, u8)]) -> Self {
         let max_code_length = *code_lengths
@@ -352,6 +421,7 @@ fn read_distance<R: Read>(
     distance_alphabet: &HuffmanAlphabet<u16>,
 ) -> Result<u16> {
     let raw_distance = distance_alphabet.read_next(bits)?;
+    println!("{}", raw_distance);
     match raw_distance {
         0..=3 => Ok(raw_distance + 1),
         _ => {
@@ -359,5 +429,20 @@ fn read_distance<R: Read>(
             let base_distance = BASE_DISTANCE[raw_distance as usize];
             Ok(base_distance + bits.read_bits(extra_bits as usize, MSBFirst)? as u16)
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_read_length_and_distance() {
+        let distance_alphabet = HuffmanAlphabet::static_alphabet();
+
+        let bytes = [0b00001100u8, 0xaa];
+        let mut bits = BitStream::new(&bytes[..]);
+        let distance = read_distance(&mut bits, &distance_alphabet);
+        assert_eq!(1, distance.unwrap());
     }
 }
