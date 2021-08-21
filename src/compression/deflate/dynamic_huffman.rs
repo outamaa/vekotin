@@ -450,6 +450,17 @@ mod tests {
 
         let bytes = [0b0, 0b0];
         assert_symbol(EndOfData, &alphabet, &bytes);
+
+        // Length  Distance
+        // 257=3   0=1
+        // 0000001 0|0110000
+        let bytes = [0b01000000, 0b0000110];
+        assert_symbol(LengthAndDistance(3, 1), &alphabet, &bytes[..]);
+        // Length   Extra   Distance  Extra
+        // 280       14=129 6         3=12
+        // 11000000 |1110   0011|0110 11 (00)
+        let bytes = [0b00000011, 0b11000111, 0b00110110];
+        assert_symbol(LengthAndDistance(129, 12), &alphabet, &bytes[..]);
     }
 
     #[test]
@@ -494,7 +505,7 @@ mod tests {
     fn assert_symbol(
         expected_symbol: DeflateSymbol,
         alphabet: &HuffmanAlphabet<u16>,
-        bytes: &[u8; 2],
+        bytes: &[u8],
     ) {
         let mut bits = BitStream::new(&bytes[..]);
         let symbol = read_deflate_symbol(&mut bits, &alphabet, &alphabet);
