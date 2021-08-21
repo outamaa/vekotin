@@ -27,16 +27,16 @@ pub struct HuffmanAlphabet<S: Copy + Ord> {
 impl HuffmanAlphabet<u16> {
     /// Return static alphabet defined in RFC-1951
     pub fn static_alphabet() -> Self {
-        let tree: Vec<SymbolEntry<u16>> = (0..144)
-            .zip(0b00110000..0b10111111)
+        let tree: Vec<SymbolEntry<u16>> = (0..=143)
+            .zip(0b00110000..=0b10111111)
             .map(|(symbol, code)| SymbolEntry {
                 symbol,
                 length: 8,
                 code,
             })
             .chain(
-                (144u16..256)
-                    .zip(0b11010000u16..0b11111111)
+                (144u16..=255)
+                    .zip(0b110010000u16..=0b111111111)
                     .map(|(symbol, code)| SymbolEntry {
                         symbol,
                         length: 9,
@@ -44,8 +44,8 @@ impl HuffmanAlphabet<u16> {
                     }),
             )
             .chain(
-                (256u16..280)
-                    .zip(0b0000000u16..0b0010111)
+                (256u16..=279)
+                    .zip(0b0000000u16..=0b0010111)
                     .map(|(symbol, code)| SymbolEntry {
                         symbol,
                         length: 7,
@@ -53,8 +53,8 @@ impl HuffmanAlphabet<u16> {
                     }),
             )
             .chain(
-                (280u16..288)
-                    .zip(0b11000000u16..0b11000111)
+                (280u16..=287)
+                    .zip(0b11000000u16..=0b11000111)
                     .map(|(symbol, code)| SymbolEntry {
                         symbol,
                         length: 8,
@@ -354,6 +354,7 @@ fn repeat_zero(
     Ok(())
 }
 
+#[derive(Debug, Clone, Copy, PartialEq)]
 enum DeflateSymbol {
     Literal(u8),
     LengthAndDistance(u16, u16),
@@ -437,12 +438,63 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_read_length_and_distance() {
+    fn test_read_deflate_symbol() {
+        use DeflateSymbol::*;
+        let alphabet = HuffmanAlphabet::static_alphabet();
+
+        let bytes = [0b00001100, 0xaa];
+        assert_symbol(Literal(0), &alphabet, &bytes);
+
+        let bytes = [0b11111111, 0b1];
+        assert_symbol(Literal(255), &alphabet, &bytes);
+    }
+
+    #[test]
+    fn test_read_distance() {
         let distance_alphabet = HuffmanAlphabet::static_alphabet();
 
         let bytes = [0b00001100u8, 0xaa];
+        assert_distance(1, &distance_alphabet, &bytes);
+
+        let bytes = [0b10001100u8, 0xaa];
+        assert_distance(2, &distance_alphabet, &bytes);
+
+        let bytes = [0b00101100u8, 0b0];
+        assert_distance(5, &distance_alphabet, &bytes);
+
+        let bytes = [0b00101100u8, 0b1];
+        assert_distance(6, &distance_alphabet, &bytes);
+
+        let bytes = [0b01101100u8, 0b00];
+        assert_distance(9, &distance_alphabet, &bytes);
+
+        let bytes = [0b01101100u8, 0b10];
+        assert_distance(10, &distance_alphabet, &bytes);
+
+        let bytes = [0b01101100u8, 0b01];
+        assert_distance(11, &distance_alphabet, &bytes);
+
+        let bytes = [0b01101100u8, 0b11];
+        assert_distance(12, &distance_alphabet, &bytes);
+    }
+
+    fn assert_distance(
+        expected_distance: u16,
+        distance_alphabet: &HuffmanAlphabet<u16>,
+        bytes: &[u8; 2],
+    ) {
         let mut bits = BitStream::new(&bytes[..]);
         let distance = read_distance(&mut bits, &distance_alphabet);
-        assert_eq!(1, distance.unwrap());
+        assert_eq!(expected_distance, distance.unwrap());
+    }
+
+    fn assert_symbol(
+        expected_symbol: DeflateSymbol,
+        alphabet: &HuffmanAlphabet<u16>,
+        bytes: &[u8; 2],
+    ) {
+        let mut bits = BitStream::new(&bytes[..]);
+        let symbol = read_deflate_symbol(&mut bits, &alphabet, &alphabet);
+        assert_eq!(expected_symbol, symbol.unwrap());
     }
 }
