@@ -235,9 +235,9 @@ impl<'a, S: 'a + Copy + Ord> HuffmanAlphabet<S> {
     }
 }
 
-pub fn copy_dynamic_huffman_block<R: Read, W: Write>(
+pub fn copy_dynamic_huffman_block<R: Read>(
     bits: &mut BitStream<R>,
-    out_bytes: &mut W,
+    out_buf: &mut Vec<u8>,
 ) -> Result<()> {
     println!("Starting dynamic huffman block");
     let hlit = (bits.read_bits(5, LSBFirst)? + 257) as usize;
@@ -258,21 +258,20 @@ pub fn copy_dynamic_huffman_block<R: Read, W: Write>(
     let literal_alphabet = extract_alphabet(bits, hlit, &cl_alphabet)?;
     let distance_alphabet = extract_alphabet(bits, hdist, &cl_alphabet)?;
 
-    let mut buf: Vec<u8> = Vec::new();
-
     while let Ok(symbol) = read_deflate_symbol(bits, &literal_alphabet, &distance_alphabet) {
         use DeflateSymbol::*;
         match symbol {
             Literal(value) => {
-                buf.push(value);
+                out_buf.push(value);
             }
             LengthAndDistance(length, distance) => {
                 println!("{:?}", symbol);
-                let current_idx = buf.len();
+                let current_idx = out_buf.len();
+                assert!(distance as usize <= current_idx);
                 let copy_start = current_idx - distance as usize;
                 let copy_end = copy_start + length as usize;
                 for idx in copy_start..copy_end {
-                    buf.push(buf[idx]);
+                    out_buf.push(out_buf[idx]);
                 }
             }
             EndOfData => {
@@ -280,8 +279,6 @@ pub fn copy_dynamic_huffman_block<R: Read, W: Write>(
             }
         }
     }
-    out_bytes.write_all(&buf[..])?;
-    println!("Wrote {} bytes", buf.len());
     Ok(())
 }
 

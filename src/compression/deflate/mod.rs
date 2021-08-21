@@ -73,7 +73,7 @@ fn copy_uncompressed_block<R: Read, W: Write>(
     Ok(())
 }
 
-pub fn decompress_blocks<W: Write>(in_bytes: &[u8], out_bytes: &mut W) -> Result<()> {
+pub fn decompress_blocks(in_bytes: &[u8], out_buf: &mut Vec<u8>) -> Result<()> {
     use CompressionType::*;
     let mut bits = BitStream::new(in_bytes);
     'block: loop {
@@ -81,11 +81,11 @@ pub fn decompress_blocks<W: Write>(in_bytes: &[u8], out_bytes: &mut W) -> Result
 
         match block_header.compression_type {
             NoCompression => {
-                copy_uncompressed_block(&mut bits, out_bytes)?;
+                copy_uncompressed_block(&mut bits, out_buf)?;
             }
             FixedHuffman => bail!("Can't handle Fixed Huffman yet, sorry!"),
             DynamicHuffman => {
-                huffman::copy_dynamic_huffman_block(&mut bits, out_bytes)?;
+                huffman::copy_dynamic_huffman_block(&mut bits, out_buf)?;
             }
             Reserved => bail!("Invalid compression type, Reserved"),
         }
