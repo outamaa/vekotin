@@ -447,6 +447,9 @@ mod tests {
 
         let bytes = [0b11111111, 0b1];
         assert_symbol(Literal(255), &alphabet, &bytes);
+
+        let bytes = [0b0, 0b0];
+        assert_symbol(EndOfData, &alphabet, &bytes);
     }
 
     #[test]
