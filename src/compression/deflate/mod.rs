@@ -20,12 +20,6 @@ struct BlockHeader {
     compression_type: CompressionType,
 }
 
-enum Symbol {
-    Literal(u8),
-    BackRef(u32),
-    EndOfBlock,
-}
-
 impl From<u8> for BlockHeader {
     fn from(b: u8) -> Self {
         use CompressionType::*;
@@ -65,7 +59,7 @@ fn copy_uncompressed_block<R: Read, W: Write>(
     bits: &mut BitStream<R>,
     out_bytes: &mut W,
 ) -> Result<()> {
-    bits.skip_to_next_byte();
+    bits.skip_to_start_of_byte()?;
 
     let len = bits.read_u16_le()?;
     let nlen = bits.read_u16_le()?;

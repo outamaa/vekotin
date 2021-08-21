@@ -204,8 +204,6 @@ pub fn draw_obj(canvas: &mut Canvas<Window>, obj: &Obj, texture: &Png, xform: &T
 
         let f = Triangle3f::new(&p0, &p1, &p2);
 
-        let white = Color::RGBA(255, 255, 255, 255);
-
         if f.normal().z() <= 0.0 {
             let n0 =
                 (*xform * Point3f::from(obj.normals[n_indices.0 as usize])).perspective_divide();

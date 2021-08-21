@@ -252,6 +252,14 @@ impl<R: Read> BitStream<R> {
         Ok(())
     }
 
+    /// If not at start of byte, skip to start of next one
+    pub fn skip_to_start_of_byte(&mut self) -> io::Result<()> {
+        if self.read_bit_pos % 8 != 0 {
+            self.skip_to_next_byte()?;
+        }
+        Ok(())
+    }
+
     /// Read next whole byte, skipping to the start of the next one if in the middle of the
     /// current one.
     pub fn read_next_byte(&mut self) -> io::Result<u8> {
@@ -300,10 +308,6 @@ impl<R: Read> BitStream<R> {
 
     fn loadable_bits(&self) -> usize {
         8 * (self.buf.len() - self.load_byte_pos)
-    }
-
-    fn capacity_bits(&self) -> usize {
-        8 * self.buf.len()
     }
 
     fn can_read_from_current_buf(&self, n: usize) -> bool {

@@ -239,6 +239,7 @@ pub fn copy_dynamic_huffman_block<R: Read, W: Write>(
     bits: &mut BitStream<R>,
     out_bytes: &mut W,
 ) -> Result<()> {
+    println!("Starting dynamic huffman block");
     let hlit = (bits.read_bits(5, LSBFirst)? + 257) as usize;
     let hdist = (bits.read_bits(5, LSBFirst)? + 1) as usize;
     let hclen = (bits.read_bits(4, LSBFirst)? + 4) as usize;
@@ -257,6 +258,30 @@ pub fn copy_dynamic_huffman_block<R: Read, W: Write>(
     let literal_alphabet = extract_alphabet(bits, hlit, &cl_alphabet)?;
     let distance_alphabet = extract_alphabet(bits, hdist, &cl_alphabet)?;
 
+    let mut buf: Vec<u8> = Vec::new();
+
+    while let Ok(symbol) = read_deflate_symbol(bits, &literal_alphabet, &distance_alphabet) {
+        use DeflateSymbol::*;
+        match symbol {
+            Literal(value) => {
+                buf.push(value);
+            }
+            LengthAndDistance(length, distance) => {
+                println!("{:?}", symbol);
+                let current_idx = buf.len();
+                let copy_start = current_idx - distance as usize;
+                let copy_end = copy_start + length as usize;
+                for idx in copy_start..copy_end {
+                    buf.push(buf[idx]);
+                }
+            }
+            EndOfData => {
+                break;
+            }
+        }
+    }
+    out_bytes.write_all(&buf[..])?;
+    println!("Wrote {} bytes", buf.len());
     Ok(())
 }
 
@@ -303,7 +328,6 @@ pub fn extract_alphabet<R: Read>(
     while (cl_symbol as usize) < alphabet_size {
         match ExtractAction::from_bit_stream(bits, cl_alphabet)? {
             ExtractAction::CodeLength(length) => {
-                println!("code length {}", length);
                 literal_code_lengths.push((cl_symbol, length));
                 cl_symbol += 1;
             }
@@ -326,7 +350,6 @@ fn copy_last_length(
     cl_symbol: &mut u16,
 ) -> Result<()> {
     let last_code = literal_code_lengths.last();
-    println!("repeat {:?} {} times", last_code, times);
     match last_code {
         None => bail!("No last element in literal_code_lengths"),
         Some(&c) => {
@@ -344,7 +367,6 @@ fn repeat_zero(
     literal_code_lengths: &mut Vec<(u16, u8)>,
     cl_symbol: &mut u16,
 ) -> Result<()> {
-    println!("repeat zero {} times", times);
     // add one to handle repeats
     literal_code_lengths.push((*cl_symbol, 0));
     *cl_symbol += times as u16;
@@ -420,7 +442,6 @@ fn read_distance<R: Read>(
     distance_alphabet: &HuffmanAlphabet<u16>,
 ) -> Result<u16> {
     let raw_distance = distance_alphabet.read_next(bits)?;
-    println!("{}", raw_distance);
     match raw_distance {
         0..=3 => Ok(raw_distance + 1),
         _ => {
