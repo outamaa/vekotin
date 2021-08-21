@@ -103,7 +103,6 @@ pub fn draw_triangle(
     texture_triangle: &Triangle2f,
     texture: &Png,
     z_buffer: &mut ZBuffer,
-    color: Color,
 ) {
     let min_x = triangle
         .points
@@ -220,7 +219,7 @@ pub fn draw_obj(canvas: &mut Canvas<Window>, obj: &Obj, texture: &Png, xform: &T
             let t1 = obj.uvs[t_indices.1 as usize].into();
             let t2 = obj.uvs[t_indices.2 as usize].into();
             let t = Triangle2f::new(&t0, &t1, &t2);
-            draw_triangle(canvas, &f, &n, &t, texture, &mut z_buffer, white);
+            draw_triangle(canvas, &f, &n, &t, texture, &mut z_buffer);
         }
     }
 }

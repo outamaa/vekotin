@@ -78,9 +78,10 @@ impl emscripten_main_loop::MainLoop for Game {
         self.canvas.set_draw_color(Color::RGB(0, 0, 0));
         self.canvas.clear();
 
-        let rot = Transform::infinite_projection(1.2, 1.0, 0.1, 0.001)
+        let rot = Transform::infinite_projection(1.0, 1.0, 0.1, 0.001)
             * Transform::translation(Vec3f::new(0.0, 0.0, -3.0))
-            * Transform::rotation_y(self.angle);
+            * Transform::rotation_y(self.angle)
+            * Transform::rotation_z(3.141);
         gfx::cpu::draw_obj(&mut self.canvas, &self.obj, &self.texture, &rot);
 
         self.canvas.present();
