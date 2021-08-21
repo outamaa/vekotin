@@ -1,7 +1,6 @@
-mod dynamic_huffman;
-mod fixed_huffman;
+mod huffman;
 
-pub use dynamic_huffman::HuffmanAlphabet;
+pub use huffman::HuffmanAlphabet;
 
 use crate::fiddling::*;
 use anyhow::{bail, Result};
@@ -92,7 +91,7 @@ pub fn decompress_blocks<W: Write>(in_bytes: &[u8], out_bytes: &mut W) -> Result
             }
             FixedHuffman => bail!("Can't handle Fixed Huffman yet, sorry!"),
             DynamicHuffman => {
-                dynamic_huffman::copy_dynamic_huffman_block(&mut bits, out_bytes)?;
+                huffman::copy_dynamic_huffman_block(&mut bits, out_bytes)?;
             }
             Reserved => bail!("Invalid compression type, Reserved"),
             _ => bail!("Can't really decompress yet, sorry!"),

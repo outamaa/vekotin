@@ -1,4 +1,4 @@
-use std::io::{Error, ErrorKind, Read};
+use std::io::Read;
 use std::{cmp, io};
 
 /// # Examples

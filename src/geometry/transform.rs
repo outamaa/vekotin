@@ -1,6 +1,5 @@
-use crate::geometry::{Point3f, Point4f, Triangle2};
-use crate::math::vector::VecElem;
-use crate::math::{Matrix3, Matrix3f, Matrix4f, Vec3f, Vec4f};
+use crate::geometry::{Point3f, Point4f};
+use crate::math::{Matrix3f, Matrix4f, Vec3f, Vec4f};
 use std::ops::Mul;
 
 #[derive(Copy, Clone, Debug, PartialEq)]

@@ -1,10 +1,9 @@
 use crate::geometry::line_segment::LineSegment2i;
 use crate::geometry::transform::Transform;
 use crate::geometry::triangle::{Triangle2f, Triangle3f};
-use crate::geometry::{Point2i, Point3f};
+use crate::geometry::Point3f;
 use crate::loader::obj::Obj;
 use crate::loader::png::Png;
-use crate::math::Matrix3f;
 use sdl2::pixels::Color;
 use sdl2::rect::Point;
 use sdl2::render::Canvas;
