@@ -392,7 +392,7 @@ fn apply_filters(ihdr: &IHDR, decompressed_data: &mut Vec<u8>, image: &mut Vec<u
                 let image_idx = scanline_len * scanline_idx;
                 image[image_idx..image_idx + scanline_len]
                     .as_mut()
-                    .write(&scanline[1..])?;
+                    .write_all(&scanline[1..])?;
             }
         }
     }

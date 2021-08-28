@@ -105,7 +105,7 @@ impl<T: VecElem> Matrix3<T> {
     //
     // Constructors
     //
-
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         m00: T,
         m01: T,
@@ -139,7 +139,7 @@ impl<T: VecElem> Matrix4<T> {
     //
     // Constructors
     //
-
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         m00: T,
         m01: T,
@@ -414,8 +414,8 @@ impl<T: VecElem, const N: usize> Mul for Matrix<T, N> {
     /// ```
     fn mul(self, rhs: Self) -> Self::Output {
         let mut m = Self::zero();
-        for i in 0 as usize..N {
-            for j in 0 as usize..N {
+        for i in 0_usize..N {
+            for j in 0_usize..N {
                 m.set(i, j, self.row(i).dot(rhs.col(j)));
             }
         }
@@ -442,6 +442,7 @@ impl<T: VecElem, const N: usize> Mul<Vector<T, N>> for Matrix<T, N> {
     /// assert_eq!(id * v, v);
     /// assert_eq!(flip * v, Vec3f::new(3.0, 2.0, 1.0));
     /// ```
+    #[allow(clippy::suspicious_arithmetic_impl)]
     fn mul(self, rhs: Self::Output) -> Self::Output {
         self.columns()
             .zip(rhs.iter())

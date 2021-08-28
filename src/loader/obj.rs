@@ -1,5 +1,6 @@
 use crate::math::{Vec2f, Vec3f};
 use anyhow::{anyhow, Result};
+use std::cmp::Ordering;
 use std::fs::File;
 use std::io;
 use std::io::BufRead;
@@ -124,29 +125,29 @@ fn parse_face<'a, T: Iterator<Item = &'a str>>(
     let triples = elements
         .map(|s| s.split('/'))
         .map(parse_face_index_triple)
-        .fold(Ok(vec![]), |mut v, maybe_triple| match maybe_triple {
+        .try_fold(vec![], |mut v, maybe_triple| match maybe_triple {
             Ok(triple) => {
-                v.as_mut().map(|v| v.push(triple));
-                v
+                v.push(triple);
+                Ok(v)
             }
             Err(e) => Err(e),
         })?;
 
-    if triples.len() < 3 {
-        Err(anyhow!("Face with less than 3 vertices: {:?}", triples))
-    } else if triples.len() == 3 {
-        Ok(triples)
-    } else {
-        // Face is not a triangle, transform into a set of triangles
-        // e.g. [0, 1, 2, 3, 4] => [_0, 1, 2_, _0, 2, 3_, _0, 3, 4_]
-        let start_triple = triples[0];
-        let triangled_triples: Vec<FaceIndexTriple> = triples[1..]
-            .windows(2)
-            // TODO: How to do this without vec! and heap allocation
-            // why not just plain old for loop?
-            .flat_map(|w| vec![start_triple, w[0], w[1]])
-            .collect();
-        Ok(triangled_triples)
+    match triples.len().cmp(&3) {
+        Ordering::Less => Err(anyhow!("Face with less than 3 vertices: {:?}", triples)),
+        Ordering::Equal => Ok(triples),
+        Ordering::Greater => {
+            // Face is not a triangle, transform into a set of triangles
+            // e.g. [0, 1, 2, 3, 4] => [_0, 1, 2_, _0, 2, 3_, _0, 3, 4_]
+            let start_triple = triples[0];
+            let triangled_triples: Vec<FaceIndexTriple> = triples[1..]
+                .windows(2)
+                // TODO: How to do this without vec! and heap allocation
+                // why not just plain old for loop?
+                .flat_map(|w| vec![start_triple, w[0], w[1]])
+                .collect();
+            Ok(triangled_triples)
+        }
     }
 }
 
