@@ -254,6 +254,10 @@ fn copy_huffman_block<R: Read>(
                     out_buf.push(out_buf[idx]);
                     total += 1;
                 }
+                println!(
+                    "{:?}",
+                    &out_buf[current_idx..(current_idx + length as usize)]
+                );
             }
             EndOfData => {
                 break;
@@ -459,24 +463,42 @@ mod tests {
         let alphabet = &STATIC_LITERAL_ALPHABET;
 
         let bytes = [0b00001100, 0xaa];
-        assert_symbol(Literal(0), &alphabet, &bytes);
+        assert_symbol(Literal(0), &alphabet, &alphabet, &bytes);
 
         let bytes = [0b11111111, 0b1];
-        assert_symbol(Literal(255), &alphabet, &bytes);
+        assert_symbol(Literal(255), &alphabet, &alphabet, &bytes);
 
         let bytes = [0b0, 0b0];
-        assert_symbol(EndOfData, &alphabet, &bytes);
+        assert_symbol(EndOfData, &alphabet, &alphabet, &bytes);
 
         // Length  Distance
         // 257=3   0=1
         // 0000001 0|0110000
         let bytes = [0b01000000, 0b0000110];
-        assert_symbol(LengthAndDistance(3, 1), &alphabet, &bytes[..]);
-        // Length   Extra   Distance  Extra
+        assert_symbol(LengthAndDistance(3, 1), &alphabet, &alphabet, &bytes[..]);
+        // Length    Extra  Distance  Extra
         // 280       14=129 6         3=12
         // 11000000 |1110   0011|0110 11 (00)
         let bytes = [0b00000011, 0b11000111, 0b00110110];
-        assert_symbol(LengthAndDistance(129, 12), &alphabet, &bytes[..]);
+        assert_symbol(LengthAndDistance(129, 12), &alphabet, &alphabet, &bytes[..]);
+    }
+
+    #[test]
+    fn test_read_deflate_symbol_static_alphabet() {
+        use DeflateSymbol::*;
+        let la = &STATIC_LITERAL_ALPHABET;
+        let da = &STATIC_DISTANCE_ALPHABET;
+
+        // Length  Distance
+        // 257=3   6 = 9 + 0 = 9
+        // 0000001 0|0110 00 0
+        let bytes = [0b01000000, 0b0000110];
+        assert_symbol(LengthAndDistance(3, 9), &la, &da, &bytes[..]);
+        // Length    Extra  Distance  Extra
+        // 280       14=129 14        54 => 129 + 54 = 183
+        // 11000000 |1110   0111|0 110110 0
+        let bytes = [0b00000011, 0b11100111, 0b00110110];
+        assert_symbol(LengthAndDistance(129, 183), &la, &da, &bytes[..]);
     }
 
     #[test]
@@ -541,11 +563,12 @@ mod tests {
 
     fn assert_symbol(
         expected_symbol: DeflateSymbol,
-        alphabet: &HuffmanAlphabet<u16>,
+        literal_alphabet: &HuffmanAlphabet<u16>,
+        distance_alphabet: &HuffmanAlphabet<u16>,
         bytes: &[u8],
     ) {
         let mut bits = BitStream::new(&bytes[..]);
-        let symbol = read_deflate_symbol(&mut bits, &alphabet, &alphabet);
+        let symbol = read_deflate_symbol(&mut bits, &literal_alphabet, &distance_alphabet);
         assert_eq!(expected_symbol, symbol.unwrap());
     }
 }

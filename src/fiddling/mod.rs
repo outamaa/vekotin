@@ -392,6 +392,7 @@ mod tests {
         assert_eq!(f.read_bits(0, LsbFirst).unwrap(), 0);
         assert_eq!(f.read_bits(1, LsbFirst).unwrap(), 1);
         assert_eq!(f.read_bits(1, MsbFirst).unwrap(), 1);
+        // Skips to the start of next byte
         assert_eq!(f.read_u16_le().unwrap(), 0b1110_1111_1100_1101);
     }
 }
