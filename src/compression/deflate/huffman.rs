@@ -507,18 +507,6 @@ mod tests {
         assert_distance(12, &distance_alphabet, &bytes);
     }
 
-    #[test]
-    fn static_literal() {
-        let code_lengths: Vec<(u16, u8)> = (0u16..144)
-            .zip(iter::repeat(8u8))
-            .chain((144..256).zip(iter::repeat(9)))
-            .chain((256..280).zip(iter::repeat(7)))
-            .chain((280..288).zip(iter::repeat(8)))
-            .collect();
-        let test = HuffmanAlphabet::from_code_lengths(&code_lengths[..]);
-        assert_eq!(test, HuffmanAlphabet::static_literal_alphabet());
-    }
-
     fn assert_distance(
         expected_distance: u16,
         distance_alphabet: &HuffmanAlphabet<u16>,
