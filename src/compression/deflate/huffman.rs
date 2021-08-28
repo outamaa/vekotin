@@ -228,7 +228,6 @@ fn copy_huffman_block<R: Read>(
     literal_alphabet: &HuffmanAlphabet<u16>,
     distance_alphabet: &HuffmanAlphabet<u16>,
 ) -> Result<(), Error> {
-    let mut total = 0;
     loop {
         use DeflateSymbol::*;
 
@@ -236,7 +235,6 @@ fn copy_huffman_block<R: Read>(
         match symbol {
             Literal(value) => {
                 out_buf.push(value);
-                total += 1;
             }
             LengthAndDistance(length, distance) => {
                 let current_idx = out_buf.len();
@@ -251,18 +249,12 @@ fn copy_huffman_block<R: Read>(
                 let copy_end = copy_start + length as usize;
                 for idx in copy_start..copy_end {
                     out_buf.push(out_buf[idx]);
-                    total += 1;
                 }
-                println!(
-                    "{:?}",
-                    &out_buf[current_idx..(current_idx + length as usize)]
-                );
             }
             EndOfData => {
                 break;
             }
         }
-        println!("{:?}, total={}", symbol, total);
     }
     Ok(())
 }
@@ -419,7 +411,7 @@ fn read_length<R: Read>(bits: &mut BitStream<R>, length_symbol: u16) -> Result<u
     let lut_idx = (length_symbol - 257) as usize;
     let extra_bits = LENGTH_EXTRA_BITS[lut_idx];
     let base_length = BASE_LENGTH[lut_idx];
-    Ok(base_length + bits.read_bits(extra_bits, MsbFirst)? as u16)
+    Ok(base_length + bits.read_bits(extra_bits, LsbFirst)? as u16)
 }
 
 static DISTANCE_EXTRA_BITS: [usize; 30] = [
@@ -451,7 +443,7 @@ fn read_distance<R: Read>(
     let raw_distance = distance_alphabet.read_next(bits)? as usize;
     let extra_bits = DISTANCE_EXTRA_BITS[raw_distance];
     let base_distance = BASE_DISTANCE[raw_distance];
-    Ok(base_distance + bits.read_bits(extra_bits, MsbFirst)? as u16)
+    Ok(base_distance + bits.read_bits(extra_bits, LsbFirst)? as u16)
 }
 
 #[cfg(test)]
