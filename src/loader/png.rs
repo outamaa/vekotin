@@ -84,6 +84,7 @@ fn read_png_header<R: Read>(reader: &mut R) -> Result<()> {
 //
 
 #[derive(PartialEq, Debug)]
+#[allow(clippy::upper_case_acronyms)]
 enum ChunkType {
     IHDR,
     PLTE,
@@ -148,6 +149,7 @@ impl From<u8> for BitDepth {
 }
 
 #[derive(PartialEq, Debug, Copy, Clone)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum ColorType {
     Grayscale,
     RGB,

@@ -40,7 +40,7 @@ struct Flags {
 impl From<u8> for Flags {
     fn from(b: u8) -> Self {
         use CompressionLevel::*;
-        let preset_dictionary = (b & 0x08) == 5;
+        let preset_dictionary = (b & 0b0001_0000) == 0b0001_0000;
         let flevel = b >> 6;
         let compression_level = match flevel {
             0 => Level1,

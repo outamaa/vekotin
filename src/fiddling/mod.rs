@@ -15,7 +15,7 @@ pub fn reverse_bits(b: u8) -> u8 {
     b
 }
 
-static FIRST_N_BITS: &'static [u8] = &[
+static FIRST_N_BITS: [u8; 9] = [
     0b00000000, 0b00000001, 0b00000011, 0b00000111, 0b00001111, 0b00011111, 0b00111111, 0b01111111,
     0b11111111,
 ];
@@ -58,14 +58,14 @@ pub fn last_n_bits(byte: u8, n: u64) -> u8 {
     } else if n == 0 {
         0
     } else {
-        byte >> 8 - n
+        byte >> (8 - n)
     }
 }
 
 #[derive(PartialEq, Debug)]
 pub enum BitOrder {
-    MSBFirst,
-    LSBFirst,
+    MsbFirst,
+    LsbFirst,
 }
 
 /// # Examples
@@ -74,37 +74,37 @@ pub enum BitOrder {
 /// use vekotin::fiddling;
 /// use vekotin::fiddling::BitOrder::*;
 ///
-/// let a = fiddling::n_bits_by_index(&[0b01010101], 4, 0, LSBFirst);
+/// let a = fiddling::n_bits_by_index(&[0b01010101], 4, 0, LsbFirst);
 /// let b = 0b0101;
 /// assert_eq!(a, b,
 ///            "Selecting bits from the start of a single byte, LSB first, {:b} == {:b}", a, b);
 ///
-/// let a = fiddling::n_bits_by_index(&[0b01010101], 4, 0, MSBFirst);
+/// let a = fiddling::n_bits_by_index(&[0b01010101], 4, 0, MsbFirst);
 /// let b = 0b1010;
 /// assert_eq!(a, b,
 ///            "Selecting bits from the start of a single byte, MSB first, {:b} == {:b}", a, b);
 ///
-/// let a = fiddling::n_bits_by_index(&[0b01010101], 4, 3, LSBFirst);
+/// let a = fiddling::n_bits_by_index(&[0b01010101], 4, 3, LsbFirst);
 /// let b = 0b1010;
 /// assert_eq!(a, b,
 ///            "Selecting bits from the middle of the byte, LSB first, {:b} == {:b}", a, b);
 ///
-/// let a = fiddling::n_bits_by_index(&[0b01010101], 4, 3, MSBFirst);
+/// let a = fiddling::n_bits_by_index(&[0b01010101], 4, 3, MsbFirst);
 /// let b = 0b0101;
 /// assert_eq!(a, b,
 ///            "Selecting bits from the middle of the byte, MSB first, {:b} == {:b}", a, b);
 ///
-/// let a = fiddling::n_bits_by_index(&[0b01010101, 0b00110011], 8, 6, LSBFirst);
+/// let a = fiddling::n_bits_by_index(&[0b01010101, 0b00110011], 8, 6, LsbFirst);
 /// let b = 0b11001101;
 /// assert_eq!(a, b,
 ///            "Selecting bits from two contiguous bytes, LSB first, {:b} == {:b}", a, b);
 ///
-/// let a = fiddling::n_bits_by_index(&[0b01010101, 0b00110011], 8, 6, MSBFirst);
+/// let a = fiddling::n_bits_by_index(&[0b01010101, 0b00110011], 8, 6, MsbFirst);
 /// let b = 0b10110011;
 /// assert_eq!(a, b,
 ///            "Selecting bits from two contiguous bytes, MSB first, {:b} == {:b}", a, b);
 ///
-/// let a = fiddling::n_bits_by_index(&[0b01010101, 0b00110011], 0, 6, MSBFirst);
+/// let a = fiddling::n_bits_by_index(&[0b01010101, 0b00110011], 0, 6, MsbFirst);
 /// let b = 0;
 /// assert_eq!(a, b,
 ///            "Selecting 0 bits returns zero");
@@ -126,7 +126,7 @@ pub fn n_bits_by_index(bytes: &[u8], n_bits: u8, bit_idx: usize, bit_order: BitO
         let last_n = 8 - within_byte_idx;
         let n_bits_read = cmp::min(last_n, n);
         read_bits = first_n_bits(last_n_bits(bytes[byte_idx], last_n as u64), n as u64) as u64;
-        if bit_order == MSBFirst {
+        if bit_order == MsbFirst {
             read_bits = last_n_bits(reverse_bits(read_bits as u8), n_bits_read as u64) as u64;
         }
         n -= n_bits_read;
@@ -136,7 +136,7 @@ pub fn n_bits_by_index(bytes: &[u8], n_bits: u8, bit_idx: usize, bit_order: BitO
     // Loop through whole bytes possibly truncating the final bits of the last one
     while n > 0 {
         let n_bits_read = cmp::min(n, 8);
-        if bit_order == MSBFirst {
+        if bit_order == MsbFirst {
             read_bits = read_bits << n_bits_read
                 | last_n_bits(reverse_bits(bytes[byte_idx]), n_bits_read as u64) as u64;
         } else {
@@ -159,53 +159,53 @@ pub fn n_bits_by_index(bytes: &[u8], n_bits: u8, bit_idx: usize, bit_order: BitO
 /// let bytes: [u8; 2] = [0b01010101, 0b00110011];
 /// let mut f = BitStream::new(&bytes[..]);
 ///
-/// assert_eq!(f.peek_bits(0, MSBFirst).unwrap(), f.peek_bits(0, MSBFirst).unwrap());
-/// assert_eq!(f.peek_bits(1, MSBFirst).unwrap(), f.peek_bits(1, MSBFirst).unwrap());
-/// assert_eq!(f.peek_bits(4, MSBFirst).unwrap(), f.peek_bits(4, MSBFirst).unwrap());
-/// assert_eq!(f.peek_bits(8, MSBFirst).unwrap(), f.peek_bits(8, MSBFirst).unwrap());
-/// assert_eq!(f.peek_bits(9, MSBFirst).unwrap(), f.peek_bits(9, MSBFirst).unwrap());
-/// assert_eq!(f.peek_bits(16, MSBFirst).unwrap(), f.peek_bits(16, MSBFirst).unwrap());
+/// assert_eq!(f.peek_bits(0, MsbFirst).unwrap(), f.peek_bits(0, MsbFirst).unwrap());
+/// assert_eq!(f.peek_bits(1, MsbFirst).unwrap(), f.peek_bits(1, MsbFirst).unwrap());
+/// assert_eq!(f.peek_bits(4, MsbFirst).unwrap(), f.peek_bits(4, MsbFirst).unwrap());
+/// assert_eq!(f.peek_bits(8, MsbFirst).unwrap(), f.peek_bits(8, MsbFirst).unwrap());
+/// assert_eq!(f.peek_bits(9, MsbFirst).unwrap(), f.peek_bits(9, MsbFirst).unwrap());
+/// assert_eq!(f.peek_bits(16, MsbFirst).unwrap(), f.peek_bits(16, MsbFirst).unwrap());
 ///
-/// assert_eq!(f.peek_bits(0, LSBFirst).unwrap(), f.peek_bits(0, LSBFirst).unwrap());
-/// assert_eq!(f.peek_bits(1, LSBFirst).unwrap(), f.peek_bits(1, LSBFirst).unwrap());
-/// assert_eq!(f.peek_bits(4, LSBFirst).unwrap(), f.peek_bits(4, LSBFirst).unwrap());
-/// assert_eq!(f.peek_bits(8, LSBFirst).unwrap(), f.peek_bits(8, LSBFirst).unwrap());
-/// assert_eq!(f.peek_bits(9, LSBFirst).unwrap(), f.peek_bits(9, LSBFirst).unwrap());
-/// assert_eq!(f.peek_bits(16, LSBFirst).unwrap(), f.peek_bits(16, LSBFirst).unwrap());
+/// assert_eq!(f.peek_bits(0, LsbFirst).unwrap(), f.peek_bits(0, LsbFirst).unwrap());
+/// assert_eq!(f.peek_bits(1, LsbFirst).unwrap(), f.peek_bits(1, LsbFirst).unwrap());
+/// assert_eq!(f.peek_bits(4, LsbFirst).unwrap(), f.peek_bits(4, LsbFirst).unwrap());
+/// assert_eq!(f.peek_bits(8, LsbFirst).unwrap(), f.peek_bits(8, LsbFirst).unwrap());
+/// assert_eq!(f.peek_bits(9, LsbFirst).unwrap(), f.peek_bits(9, LsbFirst).unwrap());
+/// assert_eq!(f.peek_bits(16, LsbFirst).unwrap(), f.peek_bits(16, LsbFirst).unwrap());
 ///
-/// assert!(f.peek_bits(17, MSBFirst).err().is_some());
+/// assert!(f.peek_bits(17, MsbFirst).err().is_some());
 ///
 /// // Consume two bits
-/// assert_eq!(f.peek_bits(2, MSBFirst).unwrap(), f.read_bits(2, MSBFirst).unwrap());
+/// assert_eq!(f.peek_bits(2, MsbFirst).unwrap(), f.read_bits(2, MsbFirst).unwrap());
 ///
 /// // Peeking should still work
-/// assert_eq!(f.peek_bits(0, MSBFirst).unwrap(), f.peek_bits(0, MSBFirst).unwrap());
-/// assert_eq!(f.peek_bits(1, MSBFirst).unwrap(), f.peek_bits(1, MSBFirst).unwrap());
-/// assert_eq!(f.peek_bits(4, MSBFirst).unwrap(), f.peek_bits(4, MSBFirst).unwrap());
-/// assert_eq!(f.peek_bits(8, MSBFirst).unwrap(), f.peek_bits(8, MSBFirst).unwrap());
-/// assert_eq!(f.peek_bits(9, MSBFirst).unwrap(), f.peek_bits(9, MSBFirst).unwrap());
-/// assert!(f.peek_bits(16, MSBFirst).err().is_some());
+/// assert_eq!(f.peek_bits(0, MsbFirst).unwrap(), f.peek_bits(0, MsbFirst).unwrap());
+/// assert_eq!(f.peek_bits(1, MsbFirst).unwrap(), f.peek_bits(1, MsbFirst).unwrap());
+/// assert_eq!(f.peek_bits(4, MsbFirst).unwrap(), f.peek_bits(4, MsbFirst).unwrap());
+/// assert_eq!(f.peek_bits(8, MsbFirst).unwrap(), f.peek_bits(8, MsbFirst).unwrap());
+/// assert_eq!(f.peek_bits(9, MsbFirst).unwrap(), f.peek_bits(9, MsbFirst).unwrap());
+/// assert!(f.peek_bits(16, MsbFirst).err().is_some());
 ///
-/// assert_eq!(f.peek_bits(0, LSBFirst).unwrap(), f.peek_bits(0, LSBFirst).unwrap());
-/// assert_eq!(f.peek_bits(1, LSBFirst).unwrap(), f.peek_bits(1, LSBFirst).unwrap());
-/// assert_eq!(f.peek_bits(4, LSBFirst).unwrap(), f.peek_bits(4, LSBFirst).unwrap());
-/// assert_eq!(f.peek_bits(8, LSBFirst).unwrap(), f.peek_bits(8, LSBFirst).unwrap());
-/// assert_eq!(f.peek_bits(9, LSBFirst).unwrap(), f.peek_bits(9, LSBFirst).unwrap());
-/// assert!(f.peek_bits(16, LSBFirst).err().is_some());
-///
-/// f = BitStream::new(&bytes[..]);
-/// assert_eq!(f.read_bits(3, LSBFirst).unwrap(), 0b101);
-/// assert_eq!(f.read_bits(3, LSBFirst).unwrap(), 0b010);
-/// assert_eq!(f.read_bits(3, LSBFirst).unwrap(), 0b101);
-/// assert_eq!(f.read_bits(3, LSBFirst).unwrap(), 0b001);
-/// assert_eq!(f.read_bits(3, LSBFirst).unwrap(), 0b011);
+/// assert_eq!(f.peek_bits(0, LsbFirst).unwrap(), f.peek_bits(0, LsbFirst).unwrap());
+/// assert_eq!(f.peek_bits(1, LsbFirst).unwrap(), f.peek_bits(1, LsbFirst).unwrap());
+/// assert_eq!(f.peek_bits(4, LsbFirst).unwrap(), f.peek_bits(4, LsbFirst).unwrap());
+/// assert_eq!(f.peek_bits(8, LsbFirst).unwrap(), f.peek_bits(8, LsbFirst).unwrap());
+/// assert_eq!(f.peek_bits(9, LsbFirst).unwrap(), f.peek_bits(9, LsbFirst).unwrap());
+/// assert!(f.peek_bits(16, LsbFirst).err().is_some());
 ///
 /// f = BitStream::new(&bytes[..]);
-/// assert_eq!(f.read_bits(3, MSBFirst).unwrap(), 0b101);
-/// assert_eq!(f.read_bits(3, MSBFirst).unwrap(), 0b010);
-/// assert_eq!(f.read_bits(3, MSBFirst).unwrap(), 0b101);
-/// assert_eq!(f.read_bits(3, MSBFirst).unwrap(), 0b100);
-/// assert_eq!(f.read_bits(3, MSBFirst).unwrap(), 0b110);
+/// assert_eq!(f.read_bits(3, LsbFirst).unwrap(), 0b101);
+/// assert_eq!(f.read_bits(3, LsbFirst).unwrap(), 0b010);
+/// assert_eq!(f.read_bits(3, LsbFirst).unwrap(), 0b101);
+/// assert_eq!(f.read_bits(3, LsbFirst).unwrap(), 0b001);
+/// assert_eq!(f.read_bits(3, LsbFirst).unwrap(), 0b011);
+///
+/// f = BitStream::new(&bytes[..]);
+/// assert_eq!(f.read_bits(3, MsbFirst).unwrap(), 0b101);
+/// assert_eq!(f.read_bits(3, MsbFirst).unwrap(), 0b010);
+/// assert_eq!(f.read_bits(3, MsbFirst).unwrap(), 0b101);
+/// assert_eq!(f.read_bits(3, MsbFirst).unwrap(), 0b100);
+/// assert_eq!(f.read_bits(3, MsbFirst).unwrap(), 0b110);
 /// ```
 pub struct BitStream<R> {
     inner: R,

@@ -1,4 +1,4 @@
-use crate::fiddling::BitOrder::{LSBFirst, MSBFirst};
+use crate::fiddling::BitOrder::{LsbFirst, MsbFirst};
 use crate::fiddling::BitStream;
 use anyhow::{bail, Error, Result};
 use lazy_static::lazy_static;
@@ -60,13 +60,12 @@ impl<'a, S: 'a + Copy + Ord> HuffmanAlphabet<S> {
         tree.sort_by(|a, b| a.code.cmp(&b.code));
         let mut lut: Vec<Option<usize>> = vec![None; 2usize.pow(max_code_length as u32)];
 
-        for tree_idx in 0..tree.len() {
-            let symbol_entry = &tree[tree_idx];
+        for (tree_idx, symbol_entry) in tree.iter().enumerate() {
             let shift_by = max_code_length - symbol_entry.length;
             let lut_segment_start = (symbol_entry.code << shift_by) as usize;
             let lut_segment_end = ((symbol_entry.code + 1) << shift_by) as usize;
-            for lut_idx in lut_segment_start..lut_segment_end {
-                lut[lut_idx] = Some(tree_idx);
+            for lut_entry in lut.iter_mut().take(lut_segment_end).skip(lut_segment_start) {
+                *lut_entry = Some(tree_idx);
             }
         }
 
@@ -138,7 +137,7 @@ impl<'a, S: 'a + Copy + Ord> HuffmanAlphabet<S> {
     /// assert_eq!(alphabet.read_next(&mut bits).unwrap(), 'B');
     /// ```
     pub fn read_next<R: Read>(&self, bits: &mut BitStream<R>) -> Result<S> {
-        let code = bits.peek_bits(self.max_code_length as usize, MSBFirst)? as u16;
+        let code = bits.peek_bits(self.max_code_length as usize, MsbFirst)? as u16;
         assert!(code <= self.max_lut_code);
         match self.lut[code as usize] {
             None => bail!("Couldn't find match in lut for code {:b}", code),
@@ -150,7 +149,7 @@ impl<'a, S: 'a + Copy + Ord> HuffmanAlphabet<S> {
         }
     }
 
-    fn assign_codes(code_lengths: &Vec<(S, u8)>, max_code_length: u8) -> Vec<SymbolEntry<S>> {
+    fn assign_codes(code_lengths: &[(S, u8)], max_code_length: u8) -> Vec<SymbolEntry<S>> {
         let mut bl_count = vec![0; max_code_length as usize + 1];
         code_lengths.iter().for_each(|&(_, x)| {
             bl_count[x as usize] += 1;
@@ -173,10 +172,10 @@ impl<'a, S: 'a + Copy + Ord> HuffmanAlphabet<S> {
             })
             .collect();
 
-        for n in 0..tree.len() {
-            let len = tree[n].length;
+        for tree_entry in &mut tree {
+            let len = tree_entry.length;
             if len != 0 {
-                tree[n].code = next_code[len as usize];
+                tree_entry.code = next_code[len as usize];
                 next_code[len as usize] += 1;
             }
         }
@@ -188,18 +187,18 @@ pub fn copy_dynamic_huffman_block<R: Read>(
     bits: &mut BitStream<R>,
     out_buf: &mut Vec<u8>,
 ) -> Result<()> {
-    let hlit = (bits.read_bits(5, LSBFirst)? + 257) as usize;
-    assert!(257 <= hlit && hlit <= 286);
-    let hdist = (bits.read_bits(5, LSBFirst)? + 1) as usize;
-    assert!(1 <= hdist && hdist <= 32);
-    let hclen = (bits.read_bits(4, LSBFirst)? + 4) as usize;
-    assert!(4 <= hclen && hclen <= 19);
+    let hlit = (bits.read_bits(5, LsbFirst)? + 257) as usize;
+    assert!((257..=286).contains(&hlit));
+    let hdist = (bits.read_bits(5, LsbFirst)? + 1) as usize;
+    assert!((1..=32).contains(&hdist));
+    let hclen = (bits.read_bits(4, LsbFirst)? + 4) as usize;
+    assert!((4..=19).contains(&hclen));
 
     let mut code_lengths = vec![(0u8, 0u8); 19];
     for i in 0..hclen {
         code_lengths[CODE_LENGTH_ALPHABET_INDICES[i]] = (
             CODE_LENGTH_ALPHABET_INDICES[i] as u8,
-            bits.read_bits(3, LSBFirst)? as u8,
+            bits.read_bits(3, LsbFirst)? as u8,
         );
     }
 
@@ -231,8 +230,10 @@ fn copy_huffman_block<R: Read>(
     distance_alphabet: &HuffmanAlphabet<u16>,
 ) -> Result<(), Error> {
     let mut total = 0;
-    while let Ok(symbol) = read_deflate_symbol(bits, &literal_alphabet, &distance_alphabet) {
+    loop {
         use DeflateSymbol::*;
+
+        let symbol = read_deflate_symbol(bits, &literal_alphabet, &distance_alphabet)?;
         match symbol {
             Literal(value) => {
                 out_buf.push(value);
@@ -279,15 +280,15 @@ impl ExtractAction {
         match s {
             0..=15 => Ok(CodeLength(s as u8)),
             16 => {
-                let copy_times = bits.read_bits(2, LSBFirst)? + 3;
+                let copy_times = bits.read_bits(2, LsbFirst)? + 3;
                 Ok(CopyLastLength(copy_times as u8))
             }
             17 => {
-                let zero_times = bits.read_bits(3, LSBFirst)? + 3;
+                let zero_times = bits.read_bits(3, LsbFirst)? + 3;
                 Ok(RepeatZero(zero_times as u8))
             }
             18 => {
-                let zero_times = bits.read_bits(7, LSBFirst)? + 11;
+                let zero_times = bits.read_bits(7, LsbFirst)? + 11;
                 Ok(RepeatZero(zero_times as u8))
             }
             _ => bail!("Invalid literal code length symbol: {}", s),
@@ -409,7 +410,7 @@ fn read_length_and_distance<R: Read>(
     let lut_idx = (length_symbol - 257) as usize;
     let extra_bits = LENGTH_EXTRA_BITS[lut_idx];
     let base_length = BASE_LENGTH[lut_idx];
-    let length = base_length + bits.read_bits(extra_bits, MSBFirst)? as u16;
+    let length = base_length + bits.read_bits(extra_bits, MsbFirst)? as u16;
 
     let distance = read_distance(bits, distance_alphabet)?;
 
@@ -445,7 +446,7 @@ fn read_distance<R: Read>(
     let raw_distance = distance_alphabet.read_next(bits)? as usize;
     let extra_bits = DISTANCE_EXTRA_BITS[raw_distance];
     let base_distance = BASE_DISTANCE[raw_distance];
-    Ok(base_distance + bits.read_bits(extra_bits, MSBFirst)? as u16)
+    Ok(base_distance + bits.read_bits(extra_bits, MsbFirst)? as u16)
 }
 
 #[cfg(test)]

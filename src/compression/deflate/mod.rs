@@ -41,7 +41,7 @@ impl From<u8> for BlockHeader {
 
 // Return the three block header bits as
 fn read_block_header<R: Read>(bits: &mut BitStream<R>) -> Result<BlockHeader> {
-    let header_bits = bits.read_bits(3, BitOrder::LSBFirst)?;
+    let header_bits = bits.read_bits(3, BitOrder::LsbFirst)?;
     Ok(BlockHeader::from(header_bits as u8))
 }
 

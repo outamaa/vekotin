@@ -44,9 +44,9 @@ impl Transform {
         .into()
     }
 
-    pub fn frustum_projection(fov_y: f32, s: f32, n: f32, f: f32) -> Self {
+    pub fn frustum_projection(fov_y: f32, s: f32, near: f32, far: f32) -> Self {
         let g = 1.0 / (fov_y * 0.5).tan();
-        let k = f / (f - n);
+        let k = far / (far - near);
 
         Matrix4f::new(
             g / s,
@@ -60,7 +60,7 @@ impl Transform {
             0.,
             0.0,
             k,
-            -n * k,
+            -near * k,
             0.0,
             0.0,
             1.0,
@@ -69,9 +69,9 @@ impl Transform {
         .into()
     }
 
-    pub fn infinite_projection(fov_y: f32, s: f32, n: f32, e: f32) -> Self {
+    pub fn infinite_projection(fov_y: f32, s: f32, near: f32, epsilon: f32) -> Self {
         let g = 1.0 / (fov_y * 0.5).tan();
-        let e = 1.0 - e;
+        let e = 1.0 - epsilon;
 
         Matrix4f::new(
             g / s,
@@ -85,7 +85,7 @@ impl Transform {
             0.0,
             0.0,
             e,
-            -n * e,
+            -near * e,
             0.0,
             0.0,
             1.0,
