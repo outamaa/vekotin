@@ -347,3 +347,51 @@ impl<R: Read> BitStream<R> {
         self.inner
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::fiddling::BitOrder::{LsbFirst, MsbFirst};
+
+    #[test]
+    fn test_multiple_reads() {
+        let bytes: [u8; 12] = [
+            0b0000_0001,
+            0b0010_0011,
+            0b0100_0101,
+            0b0110_0111,
+            0b1000_1001,
+            0b1010_1011,
+            0b1100_1101,
+            0b1110_1111, // read_u16_le
+            0b1111_1111, //
+            0b1010_1011, // read_bits
+            0b1100_1101, // read_u16_le
+            0b1110_1111,
+        ];
+        let mut f = BitStream::new(&bytes[..]);
+        assert_eq!(f.read_bits(3, MsbFirst).unwrap(), 0b100);
+        assert_eq!(f.read_bits(4, LsbFirst).unwrap(), 0b0000);
+        assert_eq!(f.read_bits(0, LsbFirst).unwrap(), 0);
+        assert_eq!(f.read_bits(8, MsbFirst).unwrap(), 0b0110_0010);
+        assert!(!f.is_at_byte_boundary());
+        f.skip_to_next_byte().unwrap();
+        assert!(f.is_at_byte_boundary());
+        f.skip_to_start_of_byte().unwrap(); // Should be no-op here
+        assert!(f.is_at_byte_boundary());
+        assert_eq!(f.peek_bits(5, LsbFirst).unwrap(), 0b0_0101);
+        assert_eq!(f.read_bits(5, LsbFirst).unwrap(), 0b0_0101);
+        assert_eq!(f.read_bits(0, MsbFirst).unwrap(), 0);
+        assert_eq!(f.read_bits(5, LsbFirst).unwrap(), 0b1_1010);
+        assert_eq!(f.read_bits(5, MsbFirst).unwrap(), 0b1_0011);
+        assert_eq!(f.peek_bits(10, MsbFirst).unwrap(), 0b01_0010_0011);
+        assert_eq!(f.read_bits(10, MsbFirst).unwrap(), 0b01_0010_0011);
+        assert_eq!(f.read_next_byte().unwrap(), 0b1100_1101);
+        assert!(f.is_at_byte_boundary());
+        assert_eq!(f.read_u16_le().unwrap(), 0b1111_1111_1110_1111);
+        assert_eq!(f.read_bits(0, LsbFirst).unwrap(), 0);
+        assert_eq!(f.read_bits(1, LsbFirst).unwrap(), 1);
+        assert_eq!(f.read_bits(1, MsbFirst).unwrap(), 1);
+        assert_eq!(f.read_u16_le().unwrap(), 0b1110_1111_1100_1101);
+    }
+}
