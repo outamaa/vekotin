@@ -1,5 +1,3 @@
-#![feature(specialization)]
-
 use crate::math::matrix::Matrix3;
 pub use num::{Float, Num, Zero};
 use std::iter::FromIterator;

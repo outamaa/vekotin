@@ -2,7 +2,7 @@ use crate::fiddling::BitOrder::{LSBFirst, MSBFirst};
 use crate::fiddling::BitStream;
 use anyhow::{bail, Error, Result};
 use lazy_static::lazy_static;
-use std::io::{Read, Write};
+use std::io::Read;
 use std::iter;
 
 const CODE_LENGTH_ALPHABET_INDICES: [usize; 19] = [
@@ -144,7 +144,7 @@ impl<'a, S: 'a + Copy + Ord> HuffmanAlphabet<S> {
             None => bail!("Couldn't find match in lut for code {:b}", code),
             Some(tree_idx) => {
                 let entry = &self.tree[tree_idx];
-                bits.skip_bits(entry.length as usize);
+                bits.skip_bits(entry.length as usize)?;
                 Ok(self.tree[tree_idx].symbol)
             }
         }
@@ -330,7 +330,7 @@ fn copy_last_length(
     let last_code = literal_code_lengths.last();
     match last_code {
         None => bail!("No last element in literal_code_lengths"),
-        Some(&(symbol, length)) => {
+        Some(&(_symbol, length)) => {
             for _ in 0..times {
                 literal_code_lengths.push((*cl_symbol, length));
                 *cl_symbol += 1;
@@ -455,7 +455,7 @@ mod tests {
     #[test]
     fn test_read_deflate_symbol() {
         use DeflateSymbol::*;
-        let alphabet = HuffmanAlphabet::static_literal_alphabet();
+        let alphabet = &STATIC_LITERAL_ALPHABET;
 
         let bytes = [0b00001100, 0xaa];
         assert_symbol(Literal(0), &alphabet, &bytes);
@@ -480,7 +480,7 @@ mod tests {
 
     #[test]
     fn test_read_distance() {
-        let distance_alphabet = HuffmanAlphabet::static_literal_alphabet();
+        let distance_alphabet = &STATIC_LITERAL_ALPHABET;
 
         let bytes = [0b00001100u8, 0xaa];
         assert_distance(1, &distance_alphabet, &bytes);
@@ -505,14 +505,35 @@ mod tests {
 
         let bytes = [0b01101100u8, 0b11];
         assert_distance(12, &distance_alphabet, &bytes);
+
+        let bytes = [0b01101100u8, 0b11];
+        assert_distance(12, &distance_alphabet, &bytes);
+
+        let distance_alphabet = &STATIC_DISTANCE_ALPHABET;
+
+        // Code = 11101, extra bits = 0000000000000
+        let bytes = [0b00010111u8, 0b00000000, 0b11111100];
+        assert_distance(24577, &distance_alphabet, &bytes);
+
+        // Code = 11101, extra bits = 0000000000001
+        let bytes = [0b00010111u8, 0b00000000, 0b11111110];
+        assert_distance(24578, &distance_alphabet, &bytes);
+
+        // Code = 11101, extra bits = 1111111111110
+        let bytes = [0b11110111u8, 0b11111111, 0b00000001];
+        assert_distance(32767, &distance_alphabet, &bytes);
+
+        // Code = 11101, extra bits = 1111111111111
+        let bytes = [0b11110111u8, 0b11111111, 0b00000011];
+        assert_distance(32768, &distance_alphabet, &bytes);
     }
 
     fn assert_distance(
         expected_distance: u16,
         distance_alphabet: &HuffmanAlphabet<u16>,
-        bytes: &[u8; 2],
+        bytes: &[u8],
     ) {
-        let mut bits = BitStream::new(&bytes[..]);
+        let mut bits = BitStream::new(bytes);
         let distance = read_distance(&mut bits, &distance_alphabet);
         assert_eq!(expected_distance, distance.unwrap());
     }

@@ -1,5 +1,3 @@
-use std::io::Write;
-
 use crate::compression::deflate;
 use anyhow::{bail, Result};
 
