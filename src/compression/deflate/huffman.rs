@@ -443,14 +443,9 @@ fn read_distance<R: Read>(
     distance_alphabet: &HuffmanAlphabet<u16>,
 ) -> Result<u16> {
     let raw_distance = distance_alphabet.read_next(bits)?;
-    match raw_distance {
-        0..=3 => Ok(raw_distance + 1),
-        _ => {
-            let extra_bits = DISTANCE_EXTRA_BITS[raw_distance as usize];
-            let base_distance = BASE_DISTANCE[raw_distance as usize];
-            Ok(base_distance + bits.read_bits(extra_bits as usize, MSBFirst)? as u16)
-        }
-    }
+    let extra_bits = DISTANCE_EXTRA_BITS[raw_distance as usize];
+    let base_distance = BASE_DISTANCE[raw_distance as usize];
+    Ok(base_distance + bits.read_bits(extra_bits as usize, MSBFirst)? as u16)
 }
 
 #[cfg(test)]
