@@ -79,11 +79,14 @@ pub fn decompress_blocks(in_bytes: &[u8], out_buf: &mut Vec<u8>) -> Result<()> {
     'block: loop {
         let block_header = read_block_header(&mut bits)?;
 
+        println!("{:?}", block_header.compression_type);
         match block_header.compression_type {
             NoCompression => {
                 copy_uncompressed_block(&mut bits, out_buf)?;
             }
-            FixedHuffman => bail!("Can't handle Fixed Huffman yet, sorry!"),
+            FixedHuffman => {
+                huffman::copy_static_huffman_block(&mut bits, out_buf)?;
+            }
             DynamicHuffman => {
                 huffman::copy_dynamic_huffman_block(&mut bits, out_buf)?;
             }

@@ -1,7 +1,9 @@
 use crate::fiddling::BitOrder::{LSBFirst, MSBFirst};
 use crate::fiddling::BitStream;
-use anyhow::{bail, Result};
+use anyhow::{bail, Error, Result};
+use lazy_static::lazy_static;
 use std::io::{Read, Write};
+use std::iter;
 
 const CODE_LENGTH_ALPHABET_INDICES: [usize; 19] = [
     16, 17, 18, 0, 8, 7, 9, 6, 10, 5, 11, 4, 12, 3, 13, 2, 14, 1, 15,
@@ -22,77 +24,24 @@ pub struct HuffmanAlphabet<S: Copy + Ord> {
     max_code_length: u8,
 }
 
-impl HuffmanAlphabet<u16> {
-    /// Return static alphabet defined in RFC-1951
-    pub fn static_alphabet() -> Self {
-        let tree: Vec<SymbolEntry<u16>> = (0..=143)
-            .zip(0b00110000..=0b10111111)
-            .map(|(symbol, code)| SymbolEntry {
-                symbol,
-                length: 8,
-                code,
-            })
-            .chain(
-                (144u16..=255)
-                    .zip(0b110010000u16..=0b111111111)
-                    .map(|(symbol, code)| SymbolEntry {
-                        symbol,
-                        length: 9,
-                        code,
-                    }),
-            )
-            .chain(
-                (256u16..=279)
-                    .zip(0b0000000u16..=0b0010111)
-                    .map(|(symbol, code)| SymbolEntry {
-                        symbol,
-                        length: 7,
-                        code,
-                    }),
-            )
-            .chain(
-                (280u16..=287)
-                    .zip(0b11000000u16..=0b11000111)
-                    .map(|(symbol, code)| SymbolEntry {
-                        symbol,
-                        length: 8,
-                        code,
-                    }),
-            )
+lazy_static! {
+    pub static ref STATIC_DISTANCE_ALPHABET: HuffmanAlphabet<u16> = {
+        let code_lengths: Vec<(u16, u8)> = (0u16..32).zip(iter::repeat(5u8)).collect();
+        HuffmanAlphabet::from_code_lengths(&code_lengths[..])
+    };
+    pub static ref STATIC_LITERAL_ALPHABET: HuffmanAlphabet<u16> = {
+        let code_lengths: Vec<(u16, u8)> = (0u16..144)
+            .zip(iter::repeat(8u8))
+            .chain((144..256).zip(iter::repeat(9)))
+            .chain((256..280).zip(iter::repeat(7)))
+            .chain((280..288).zip(iter::repeat(8)))
             .collect();
-        let mut lut: Vec<Option<usize>> = vec![None; 2usize.pow(9)];
-        for (i, symbol_entry) in tree.iter().enumerate() {
-            match symbol_entry.length {
-                9 => {
-                    lut[symbol_entry.code as usize] = Some(i);
-                }
-                8 => {
-                    let lut_idx = (symbol_entry.code as usize) << 1;
-                    lut[lut_idx] = Some(i);
-                    lut[lut_idx + 1] = Some(i);
-                }
-                7 => {
-                    let lut_idx = (symbol_entry.code as usize) << 2;
-                    lut[lut_idx] = Some(i);
-                    lut[lut_idx + 1] = Some(i);
-                    lut[lut_idx + 2] = Some(i);
-                    lut[lut_idx + 3] = Some(i);
-                }
-                other => panic!("Did not expect length {}", other),
-            }
-        }
-
-        HuffmanAlphabet {
-            tree,
-            lut,
-            max_lut_code: 0b111111111,
-            max_code_length: 9,
-        }
-    }
+        HuffmanAlphabet::from_code_lengths(&code_lengths[..])
+    };
 }
 
 impl<'a, S: 'a + Copy + Ord> HuffmanAlphabet<S> {
-    pub fn from_code_lengths(code_lengths: &[(S, u8)]) -> Self {
+    pub fn from_code_lengths(code_lengths: &[(S, u8)]) -> HuffmanAlphabet<S> {
         let max_code_length = *code_lengths
             .iter()
             .filter(|&(_, length)| *length > 0)
@@ -105,7 +54,7 @@ impl<'a, S: 'a + Copy + Ord> HuffmanAlphabet<S> {
             .filter(|&(_, length)| *length > 0)
             .cloned()
             .collect();
-        let mut tree = <HuffmanAlphabet<S>>::assign_codes(&non_zero_code_lengths, max_code_length);
+        let mut tree = Self::assign_codes(&non_zero_code_lengths, max_code_length);
 
         // Build lookup table
         tree.sort_by(|a, b| a.code.cmp(&b.code));
@@ -121,7 +70,7 @@ impl<'a, S: 'a + Copy + Ord> HuffmanAlphabet<S> {
             }
         }
 
-        HuffmanAlphabet {
+        Self {
             tree,
             lut,
             max_lut_code: (1 << max_code_length) - 1,
@@ -239,10 +188,12 @@ pub fn copy_dynamic_huffman_block<R: Read>(
     bits: &mut BitStream<R>,
     out_buf: &mut Vec<u8>,
 ) -> Result<()> {
-    println!("Starting dynamic huffman block");
     let hlit = (bits.read_bits(5, LSBFirst)? + 257) as usize;
+    assert!(257 <= hlit && hlit <= 286);
     let hdist = (bits.read_bits(5, LSBFirst)? + 1) as usize;
+    assert!(1 <= hdist && hdist <= 32);
     let hclen = (bits.read_bits(4, LSBFirst)? + 4) as usize;
+    assert!(4 <= hclen && hclen <= 19);
 
     let mut code_lengths = vec![(0u8, 0u8); 19];
     for i in 0..hclen {
@@ -258,26 +209,56 @@ pub fn copy_dynamic_huffman_block<R: Read>(
     let literal_alphabet = extract_alphabet(bits, hlit, &cl_alphabet)?;
     let distance_alphabet = extract_alphabet(bits, hdist, &cl_alphabet)?;
 
+    copy_huffman_block(bits, out_buf, &literal_alphabet, &distance_alphabet)
+}
+
+pub fn copy_static_huffman_block<R: Read>(
+    bits: &mut BitStream<R>,
+    out_buf: &mut Vec<u8>,
+) -> Result<()> {
+    copy_huffman_block(
+        bits,
+        out_buf,
+        &STATIC_LITERAL_ALPHABET,
+        &STATIC_DISTANCE_ALPHABET,
+    )
+}
+
+fn copy_huffman_block<R: Read>(
+    bits: &mut BitStream<R>,
+    out_buf: &mut Vec<u8>,
+    literal_alphabet: &HuffmanAlphabet<u16>,
+    distance_alphabet: &HuffmanAlphabet<u16>,
+) -> Result<(), Error> {
+    let mut total = 0;
     while let Ok(symbol) = read_deflate_symbol(bits, &literal_alphabet, &distance_alphabet) {
         use DeflateSymbol::*;
         match symbol {
             Literal(value) => {
                 out_buf.push(value);
+                total += 1;
             }
             LengthAndDistance(length, distance) => {
-                println!("{:?}", symbol);
                 let current_idx = out_buf.len();
-                assert!(distance as usize <= current_idx);
+                assert!(
+                    distance as usize <= current_idx,
+                    "length={}, distance {} <= current_idx {}",
+                    length,
+                    distance,
+                    current_idx
+                );
                 let copy_start = current_idx - distance as usize;
                 let copy_end = copy_start + length as usize;
                 for idx in copy_start..copy_end {
                     out_buf.push(out_buf[idx]);
+                    total += 1;
                 }
             }
             EndOfData => {
                 break;
             }
         }
+        println!("{:?}, total={}", symbol, total);
     }
     Ok(())
 }
@@ -349,9 +330,9 @@ fn copy_last_length(
     let last_code = literal_code_lengths.last();
     match last_code {
         None => bail!("No last element in literal_code_lengths"),
-        Some(&c) => {
+        Some(&(symbol, length)) => {
             for _ in 0..times {
-                literal_code_lengths.push(c);
+                literal_code_lengths.push((*cl_symbol, length));
                 *cl_symbol += 1;
             }
             Ok(())
@@ -399,12 +380,23 @@ fn read_deflate_symbol<R: Read>(
 }
 
 static LENGTH_EXTRA_BITS: [u8; 29] = [
-    0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2, 3, 3, 3, 3, 4, 4, 4, 4, 5, 5, 5, 5, 0,
+    0, 0, 0, 0, 0, 0, 0, 0, // 257 - 264
+    1, 1, 1, 1, //             265 - 268
+    2, 2, 2, 2, //             269 - 272
+    3, 3, 3, 3, //             273 - 276
+    4, 4, 4, 4, //             277 - 280
+    5, 5, 5, 5, //             280 - 284
+    0, //                      285
 ];
 
 static BASE_LENGTH: [u16; 29] = [
-    3, 4, 5, 6, 7, 8, 9, 10, 11, 13, 15, 17, 19, 23, 27, 31, 35, 43, 51, 59, 67, 83, 99, 115, 131,
-    163, 195, 227, 258,
+    3, 4, 5, 6, 7, 8, 9, 10, // 0 extra bits
+    11, 13, 15, 17, //          1 extra bits
+    19, 23, 27, 31, //          2 extra bits
+    35, 43, 51, 59, //          3 extra bits
+    67, 83, 99, 115, //         4 extra bits
+    131, 163, 195, 227, //      5 extra bits
+    258, //                     0 extra bits
 ];
 
 fn read_length_and_distance<R: Read>(
@@ -430,8 +422,20 @@ static DISTANCE_EXTRA_BITS: [u8; 30] = [
 ];
 
 static BASE_DISTANCE: [u16; 30] = [
-    1, 2, 3, 4, 5, 7, 9, 13, 17, 25, 33, 49, 65, 97, 129, 193, 257, 385, 513, 769, 1025, 1537,
-    2049, 3073, 4097, 6145, 8193, 12289, 16385, 24577,
+    1, 2, 3, 4, //   0 extra bits
+    5, 7, //         1 extra bit
+    9, 13, //        2 extra bits
+    17, 25, //       3 extra bits
+    33, 49, //       4 extra bits
+    65, 97, //       5 extra bits
+    129, 193, //     6 extra bits
+    257, 385, //     7 extra bits
+    513, 769, //     8 extra bits
+    1025, 1537, //   9 extra bits
+    2049, 3073, //   10 extra bits
+    4097, 6145, //   11 extra bits
+    8193, 12289, //  12 extra bits
+    16385, 24577, // 13 extra bits
 ];
 
 fn read_distance<R: Read>(
@@ -456,7 +460,7 @@ mod tests {
     #[test]
     fn test_read_deflate_symbol() {
         use DeflateSymbol::*;
-        let alphabet = HuffmanAlphabet::static_alphabet();
+        let alphabet = HuffmanAlphabet::static_literal_alphabet();
 
         let bytes = [0b00001100, 0xaa];
         assert_symbol(Literal(0), &alphabet, &bytes);
@@ -481,7 +485,7 @@ mod tests {
 
     #[test]
     fn test_read_distance() {
-        let distance_alphabet = HuffmanAlphabet::static_alphabet();
+        let distance_alphabet = HuffmanAlphabet::static_literal_alphabet();
 
         let bytes = [0b00001100u8, 0xaa];
         assert_distance(1, &distance_alphabet, &bytes);
@@ -506,6 +510,18 @@ mod tests {
 
         let bytes = [0b01101100u8, 0b11];
         assert_distance(12, &distance_alphabet, &bytes);
+    }
+
+    #[test]
+    fn static_literal() {
+        let code_lengths: Vec<(u16, u8)> = (0u16..144)
+            .zip(iter::repeat(8u8))
+            .chain((144..256).zip(iter::repeat(9)))
+            .chain((256..280).zip(iter::repeat(7)))
+            .chain((280..288).zip(iter::repeat(8)))
+            .collect();
+        let test = HuffmanAlphabet::from_code_lengths(&code_lengths[..]);
+        assert_eq!(test, HuffmanAlphabet::static_literal_alphabet());
     }
 
     fn assert_distance(

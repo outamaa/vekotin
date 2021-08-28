@@ -103,6 +103,12 @@ pub enum BitOrder {
 /// let b = 0b10110011;
 /// assert_eq!(a, b,
 ///            "Selecting bits from two contiguous bytes, MSB first, {:b} == {:b}", a, b);
+///
+/// let a = fiddling::n_bits_by_index(&[0b01010101, 0b00110011], 0, 6, MSBFirst);
+/// let b = 0;
+/// assert_eq!(a, b,
+///            "Selecting 0 bits returns zero");
+
 /// ```
 pub fn n_bits_by_index(bytes: &[u8], n_bits: u8, bit_idx: usize, bit_order: BitOrder) -> u64 {
     use BitOrder::*;
