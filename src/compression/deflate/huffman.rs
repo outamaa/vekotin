@@ -242,7 +242,7 @@ fn copy_huffman_block<R: Read>(
                 let current_idx = out_buf.len();
                 assert!(
                     distance as usize <= current_idx,
-                    "length={}, distance {} <= current_idx {}",
+                    "length={}, distance {} > current_idx {}",
                     length,
                     distance,
                     current_idx
@@ -379,7 +379,7 @@ fn read_deflate_symbol<R: Read>(
     }
 }
 
-static LENGTH_EXTRA_BITS: [u8; 29] = [
+static LENGTH_EXTRA_BITS: [usize; 29] = [
     0, 0, 0, 0, 0, 0, 0, 0, // 257 - 264
     1, 1, 1, 1, //             265 - 268
     2, 2, 2, 2, //             269 - 272
@@ -406,17 +406,17 @@ fn read_length_and_distance<R: Read>(
 ) -> Result<DeflateSymbol> {
     use DeflateSymbol::*;
 
-    // TODO look this through
-    let extra_bits = LENGTH_EXTRA_BITS[(length_symbol - 257) as usize];
-    let base_length = BASE_LENGTH[(length_symbol - 257) as usize];
-    let length = base_length + bits.read_bits(extra_bits as usize, MSBFirst)? as u16;
+    let lut_idx = (length_symbol - 257) as usize;
+    let extra_bits = LENGTH_EXTRA_BITS[lut_idx];
+    let base_length = BASE_LENGTH[lut_idx];
+    let length = base_length + bits.read_bits(extra_bits, MSBFirst)? as u16;
 
     let distance = read_distance(bits, distance_alphabet)?;
 
     Ok(LengthAndDistance(length, distance))
 }
 
-static DISTANCE_EXTRA_BITS: [u8; 30] = [
+static DISTANCE_EXTRA_BITS: [usize; 30] = [
     0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13,
     13,
 ];
@@ -442,10 +442,10 @@ fn read_distance<R: Read>(
     bits: &mut BitStream<R>,
     distance_alphabet: &HuffmanAlphabet<u16>,
 ) -> Result<u16> {
-    let raw_distance = distance_alphabet.read_next(bits)?;
-    let extra_bits = DISTANCE_EXTRA_BITS[raw_distance as usize];
-    let base_distance = BASE_DISTANCE[raw_distance as usize];
-    Ok(base_distance + bits.read_bits(extra_bits as usize, MSBFirst)? as u16)
+    let raw_distance = distance_alphabet.read_next(bits)? as usize;
+    let extra_bits = DISTANCE_EXTRA_BITS[raw_distance];
+    let base_distance = BASE_DISTANCE[raw_distance];
+    Ok(base_distance + bits.read_bits(extra_bits, MSBFirst)? as u16)
 }
 
 #[cfg(test)]
