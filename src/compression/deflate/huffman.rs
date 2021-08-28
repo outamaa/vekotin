@@ -18,7 +18,7 @@ struct SymbolEntry<S: Copy + Ord> {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct HuffmanAlphabet<S: Copy + Ord> {
-    tree: Vec<SymbolEntry<S>>,
+    symbol_entries: Vec<SymbolEntry<S>>,
     lut: Vec<Option<usize>>,
     max_lut_code: u16,
     max_code_length: u8,
@@ -54,13 +54,12 @@ impl<'a, S: 'a + Copy + Ord> HuffmanAlphabet<S> {
             .filter(|&(_, length)| *length > 0)
             .cloned()
             .collect();
-        let mut tree = Self::assign_codes(&non_zero_code_lengths, max_code_length);
+        let symbol_entries = Self::assign_codes(&non_zero_code_lengths, max_code_length);
 
         // Build lookup table
-        tree.sort_by(|a, b| a.code.cmp(&b.code));
         let mut lut: Vec<Option<usize>> = vec![None; 2usize.pow(max_code_length as u32)];
 
-        for (tree_idx, symbol_entry) in tree.iter().enumerate() {
+        for (tree_idx, symbol_entry) in symbol_entries.iter().enumerate() {
             let shift_by = max_code_length - symbol_entry.length;
             let lut_segment_start = (symbol_entry.code << shift_by) as usize;
             let lut_segment_end = ((symbol_entry.code + 1) << shift_by) as usize;
@@ -70,7 +69,7 @@ impl<'a, S: 'a + Copy + Ord> HuffmanAlphabet<S> {
         }
 
         Self {
-            tree,
+            symbol_entries,
             lut,
             max_lut_code: (1 << max_code_length) - 1,
             max_code_length,
@@ -106,7 +105,7 @@ impl<'a, S: 'a + Copy + Ord> HuffmanAlphabet<S> {
         assert!(code <= self.max_lut_code);
         match self.lut[code as usize] {
             None => None,
-            Some(tree_idx) => Some(self.tree[tree_idx].symbol),
+            Some(tree_idx) => Some(self.symbol_entries[tree_idx].symbol),
         }
     }
 
@@ -142,9 +141,9 @@ impl<'a, S: 'a + Copy + Ord> HuffmanAlphabet<S> {
         match self.lut[code as usize] {
             None => bail!("Couldn't find match in lut for code {:b}", code),
             Some(tree_idx) => {
-                let entry = &self.tree[tree_idx];
-                bits.skip_bits(entry.length as usize)?;
-                Ok(self.tree[tree_idx].symbol)
+                let entry = &self.symbol_entries[tree_idx];
+                bits.skip_bits(entry.length as usize);
+                Ok(entry.symbol)
             }
         }
     }
@@ -396,7 +395,7 @@ static LENGTH_EXTRA_BITS: [usize; 29] = [
 
 static BASE_LENGTH: [u16; 29] = [
     3, 4, 5, 6, 7, 8, 9, 10, // 0 extra bits
-    11, 13, 15, 17, //          1 extra bits
+    11, 13, 15, 17, //          1 extra bit
     19, 23, 27, 31, //          2 extra bits
     35, 43, 51, 59, //          3 extra bits
     67, 83, 99, 115, //         4 extra bits
@@ -411,14 +410,16 @@ fn read_length_and_distance<R: Read>(
 ) -> Result<DeflateSymbol> {
     use DeflateSymbol::*;
 
+    let length = read_length(bits, length_symbol)?;
+    let distance = read_distance(bits, distance_alphabet)?;
+    Ok(LengthAndDistance(length, distance))
+}
+
+fn read_length<R: Read>(bits: &mut BitStream<R>, length_symbol: u16) -> Result<u16> {
     let lut_idx = (length_symbol - 257) as usize;
     let extra_bits = LENGTH_EXTRA_BITS[lut_idx];
     let base_length = BASE_LENGTH[lut_idx];
-    let length = base_length + bits.read_bits(extra_bits, MsbFirst)? as u16;
-
-    let distance = read_distance(bits, distance_alphabet)?;
-
-    Ok(LengthAndDistance(length, distance))
+    Ok(base_length + bits.read_bits(extra_bits, MsbFirst)? as u16)
 }
 
 static DISTANCE_EXTRA_BITS: [usize; 30] = [
@@ -549,6 +550,23 @@ mod tests {
         // Code = 11101, extra bits = 1111111111111
         let bytes = [0b11110111u8, 0b11111111, 0b00000011];
         assert_distance(32768, &distance_alphabet, &bytes);
+    }
+
+    #[test]
+    fn test_read_length() {
+        let bytes = [0b11111111, 0b11111111];
+        assert_length(3, 257, &bytes);
+        assert_length(4, 258, &bytes);
+        assert_length(12, 265, &bytes);
+        assert_length(50, 274, &bytes);
+        assert_length(130, 280, &bytes);
+        assert_length(258, 285, &bytes);
+    }
+
+    fn assert_length(expected_length: u16, length_code: u16, bytes: &[u8]) {
+        let mut bits = BitStream::new(bytes);
+        let length = read_length(&mut bits, length_code);
+        assert_eq!(expected_length, length.unwrap());
     }
 
     fn assert_distance(

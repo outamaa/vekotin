@@ -235,16 +235,14 @@ impl<R: Read> BitStream<R> {
     /// Read (and consume) the next `n` bits from the `inner` reader.
     pub fn read_bits(&mut self, n: usize, bo: BitOrder) -> io::Result<u64> {
         let result = self.peek_bits(n, bo)?;
-        self.read_bit_pos += n;
+        self.skip_bits(n);
         Ok(result)
     }
 
-    pub fn skip_bits(&mut self, n: usize) -> io::Result<()> {
+    pub fn skip_bits(&mut self, n: usize) {
         // TODO Might as well be possible to skip more bytes
         assert!(n <= (self.buf.len() - 1) * 8);
-        self.ensure_readable_bits(n)?;
         self.read_bit_pos += n;
-        Ok(())
     }
 
     pub fn read_u16_le(&mut self) -> io::Result<u16> {
@@ -253,44 +251,44 @@ impl<R: Read> BitStream<R> {
     }
 
     /// Skip to next byte boundary
-    pub fn skip_to_next_byte(&mut self) -> io::Result<()> {
-        self.skip_bits((8 - (self.read_bit_pos % 8)) as usize)?;
-        Ok(())
+    pub fn skip_to_next_byte(&mut self) {
+        self.skip_bits((8 - (self.read_bit_pos % 8)) as usize);
     }
 
     /// If not at start of byte, skip to start of next one
-    pub fn skip_to_start_of_byte(&mut self) -> io::Result<()> {
-        if self.read_bit_pos % 8 != 0 {
-            self.skip_to_next_byte()?;
+    pub fn skip_to_start_of_byte(&mut self) {
+        if !self.is_at_byte_boundary() {
+            self.skip_to_next_byte();
         }
-        Ok(())
     }
 
     /// Read next whole byte, skipping to the start of the next one if in the middle of the
     /// current one.
     pub fn read_next_byte(&mut self) -> io::Result<u8> {
-        if !self.is_at_byte_boundary() {
-            let _ = self.skip_to_next_byte()?;
-        }
+        self.skip_to_start_of_byte();
         self.ensure_readable_bits(8)?;
-        let byte = self.buf[self.read_bit_pos / 8];
+        let byte = self.buf[self.read_byte_pos()];
         self.read_bit_pos += 8;
         Ok(byte)
     }
 
+    fn read_byte_pos(&mut self) -> usize {
+        self.read_bit_pos / 8
+    }
+
     /// Load bytes from `inner` reader
-    fn load_bytes(&mut self, n: usize) -> io::Result<()> {
-        assert!(self.load_byte_pos + n <= self.buf.len());
+    fn load_bytes(&mut self, n_bytes: usize) -> io::Result<()> {
+        assert!(self.load_byte_pos + n_bytes <= self.buf.len());
         self.inner
-            .read_exact(&mut self.buf[self.load_byte_pos..self.load_byte_pos + n])?;
-        self.load_byte_pos += n;
+            .read_exact(&mut self.buf[self.load_byte_pos..self.load_byte_pos + n_bytes])?;
+        self.load_byte_pos += n_bytes;
         Ok(())
     }
 
     /// Rewind buffer so that read bytes are discarded and `read_bit_pos` resides in the first
     /// byte of `buf`.
     fn rewind_buffer(&mut self) {
-        let read_byte_pos = self.read_bit_pos / 8;
+        let read_byte_pos = self.read_byte_pos();
         if read_byte_pos == 0 {
             println!("called rewind_buffer with read_byte_pos = 0");
             return;
@@ -316,17 +314,17 @@ impl<R: Read> BitStream<R> {
         8 * (self.buf.len() - self.load_byte_pos)
     }
 
-    fn can_read_from_current_buf(&self, n: usize) -> bool {
-        n <= self.readable_bits()
+    fn can_read_from_current_buf(&self, n_bits: usize) -> bool {
+        n_bits <= self.readable_bits()
     }
 
     fn is_at_byte_boundary(&self) -> bool {
         self.read_bit_pos % 8 == 0
     }
 
-    fn ensure_readable_bits(&mut self, n: usize) -> io::Result<()> {
-        if !self.can_read_from_current_buf(n) {
-            let bits_to_read = n - self.readable_bits();
+    fn ensure_readable_bits(&mut self, n_bits: usize) -> io::Result<()> {
+        if !self.can_read_from_current_buf(n_bits) {
+            let bits_to_read = n_bits - self.readable_bits();
             if self.loadable_bits() < bits_to_read {
                 self.rewind_buffer();
             }
@@ -371,26 +369,46 @@ mod tests {
         ];
         let mut f = BitStream::new(&bytes[..]);
         assert_eq!(f.read_bits(3, MsbFirst).unwrap(), 0b100);
+        f.peek_bits(9, MsbFirst).unwrap();
         assert_eq!(f.read_bits(4, LsbFirst).unwrap(), 0b0000);
+        f.peek_bits(9, MsbFirst).unwrap();
         assert_eq!(f.read_bits(0, LsbFirst).unwrap(), 0);
+        f.peek_bits(9, MsbFirst).unwrap();
         assert_eq!(f.read_bits(8, MsbFirst).unwrap(), 0b0110_0010);
+        f.peek_bits(9, MsbFirst).unwrap();
         assert!(!f.is_at_byte_boundary());
-        f.skip_to_next_byte().unwrap();
+        f.peek_bits(9, MsbFirst).unwrap();
+        f.skip_to_next_byte();
+        f.peek_bits(9, MsbFirst).unwrap();
         assert!(f.is_at_byte_boundary());
-        f.skip_to_start_of_byte().unwrap(); // Should be no-op here
+        f.peek_bits(9, MsbFirst).unwrap();
+        f.skip_to_start_of_byte(); // Should be no-op here
+        f.peek_bits(9, MsbFirst).unwrap();
         assert!(f.is_at_byte_boundary());
+        f.peek_bits(9, MsbFirst).unwrap();
         assert_eq!(f.peek_bits(5, LsbFirst).unwrap(), 0b0_0101);
+        f.peek_bits(9, MsbFirst).unwrap();
         assert_eq!(f.read_bits(5, LsbFirst).unwrap(), 0b0_0101);
+        f.peek_bits(9, MsbFirst).unwrap();
         assert_eq!(f.read_bits(0, MsbFirst).unwrap(), 0);
+        f.peek_bits(9, MsbFirst).unwrap();
         assert_eq!(f.read_bits(5, LsbFirst).unwrap(), 0b1_1010);
+        f.peek_bits(9, MsbFirst).unwrap();
         assert_eq!(f.read_bits(5, MsbFirst).unwrap(), 0b1_0011);
+        f.peek_bits(9, MsbFirst).unwrap();
         assert_eq!(f.peek_bits(10, MsbFirst).unwrap(), 0b01_0010_0011);
+        f.peek_bits(9, MsbFirst).unwrap();
         assert_eq!(f.read_bits(10, MsbFirst).unwrap(), 0b01_0010_0011);
+        f.peek_bits(9, MsbFirst).unwrap();
         assert_eq!(f.read_next_byte().unwrap(), 0b1100_1101);
+        f.peek_bits(9, MsbFirst).unwrap();
         assert!(f.is_at_byte_boundary());
         assert_eq!(f.read_u16_le().unwrap(), 0b1111_1111_1110_1111);
+        f.peek_bits(9, MsbFirst).unwrap();
         assert_eq!(f.read_bits(0, LsbFirst).unwrap(), 0);
+        f.peek_bits(9, MsbFirst).unwrap();
         assert_eq!(f.read_bits(1, LsbFirst).unwrap(), 1);
+        f.peek_bits(9, MsbFirst).unwrap();
         assert_eq!(f.read_bits(1, MsbFirst).unwrap(), 1);
         // Skips to the start of next byte
         assert_eq!(f.read_u16_le().unwrap(), 0b1110_1111_1100_1101);

@@ -59,7 +59,7 @@ fn copy_uncompressed_block<R: Read, W: Write>(
     bits: &mut BitStream<R>,
     out_bytes: &mut W,
 ) -> Result<()> {
-    bits.skip_to_start_of_byte()?;
+    bits.skip_to_start_of_byte();
 
     let len = bits.read_u16_le()?;
     let nlen = bits.read_u16_le()?;
