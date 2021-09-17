@@ -470,10 +470,10 @@ mod tests {
         let bytes = [0b01000000, 0b0000110];
         assert_symbol(LengthAndDistance(3, 1), &alphabet, &alphabet, &bytes[..]);
         // Length    Extra  Distance  Extra
-        // 280       14=129 6         3=12
+        // 280       7=122  6         3=12
         // 11000000 |1110   0011|0110 11 (00)
         let bytes = [0b00000011, 0b11000111, 0b00110110];
-        assert_symbol(LengthAndDistance(129, 12), &alphabet, &alphabet, &bytes[..]);
+        assert_symbol(LengthAndDistance(122, 12), &alphabet, &alphabet, &bytes[..]);
     }
 
     #[test]
@@ -488,10 +488,10 @@ mod tests {
         let bytes = [0b01000000, 0b0000110];
         assert_symbol(LengthAndDistance(3, 9), &la, &da, &bytes[..]);
         // Length    Extra  Distance  Extra
-        // 280       14=129 14        54 => 129 + 54 = 183
+        // 280       7=122  14        27 => 129 + 27 = 156
         // 11000000 |1110   0111|0 110110 0
         let bytes = [0b00000011, 0b11100111, 0b00110110];
-        assert_symbol(LengthAndDistance(129, 183), &la, &da, &bytes[..]);
+        assert_symbol(LengthAndDistance(122, 156), &la, &da, &bytes[..]);
     }
 
     #[test]
@@ -513,14 +513,11 @@ mod tests {
         let bytes = [0b01101100u8, 0b00];
         assert_distance(9, &distance_alphabet, &bytes);
 
-        let bytes = [0b01101100u8, 0b10];
+        let bytes = [0b01101100u8, 0b01];
         assert_distance(10, &distance_alphabet, &bytes);
 
-        let bytes = [0b01101100u8, 0b01];
+        let bytes = [0b01101100u8, 0b10];
         assert_distance(11, &distance_alphabet, &bytes);
-
-        let bytes = [0b01101100u8, 0b11];
-        assert_distance(12, &distance_alphabet, &bytes);
 
         let bytes = [0b01101100u8, 0b11];
         assert_distance(12, &distance_alphabet, &bytes);
@@ -533,11 +530,11 @@ mod tests {
 
         // Code = 11101, extra bits = 0000000000001
         let bytes = [0b00010111u8, 0b00000000, 0b11111110];
-        assert_distance(24578, &distance_alphabet, &bytes);
+        assert_distance(28673, &distance_alphabet, &bytes);
 
         // Code = 11101, extra bits = 1111111111110
         let bytes = [0b11110111u8, 0b11111111, 0b00000001];
-        assert_distance(32767, &distance_alphabet, &bytes);
+        assert_distance(28672, &distance_alphabet, &bytes);
 
         // Code = 11101, extra bits = 1111111111111
         let bytes = [0b11110111u8, 0b11111111, 0b00000011];
