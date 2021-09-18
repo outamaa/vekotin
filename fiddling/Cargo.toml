@@ -1,0 +1,5 @@
+[package]
+name = "fiddling"
+version = "0.1.0"
+authors = ["outamaa <ville.outamaa@gmail.com>"]
+edition = "2018"

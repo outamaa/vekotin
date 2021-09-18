@@ -1,24 +1,15 @@
-[package]
-name = "vekotin"
-version = "0.1.0"
-authors = ["outamaa <ville.outamaa@gmail.com>"]
-edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
-[dependencies]
-anyhow = "1.0"
-sdl2 = "0.34"
-emscripten_main_loop = "0.1"
-gl = "0.14"
-lazy_static = "1.4"
-rand = "0.8"
-regex = "1.4"
-num = "0.4"
-
-[lib]
-name = "vekotin"
-path = "src/lib.rs"
-
 [profile.release]
 debug = true
+
+[workspace]
+members = [
+    "bin/png",
+    "bin/obj",
+    "compression",
+    "digest",
+    "fiddling",
+    "geometry",
+    "gfx",
+    "loader",
+    "math",
+]
