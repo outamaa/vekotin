@@ -169,10 +169,10 @@ pub fn draw_triangle(
 
 pub fn draw_obj(canvas: &mut Canvas<Window>, obj: &Obj, texture: &Png, xform: &Transform) {
     let viewport = canvas.viewport();
-    let w = viewport.width();
-    let h = viewport.height();
+    let width = viewport.width();
+    let height = viewport.height();
 
-    let mut z_buffer = ZBuffer::new(w, h);
+    let mut z_buffer = ZBuffer::new(width, height);
 
     for i in 0..obj.vertex_index_triples.len() {
         let v_indices = &obj.vertex_index_triples[i];
@@ -183,22 +183,22 @@ pub fn draw_obj(canvas: &mut Canvas<Window>, obj: &Obj, texture: &Png, xform: &T
         let v0 = v0.perspective_divide();
         // Project the 3D points onto the canvas, orthographic projection
         let p0 = Point3f::new(
-            (v0.x() + 1.0) * w as f32 / 2.0,
-            h as f32 - ((v0.y() + 1.0) * h as f32 / 2.0),
+            (v0.x() + 1.0) * width as f32 / 2.0,
+            height as f32 - ((v0.y() + 1.0) * height as f32 / 2.0),
             v0.z(),
         );
         let v1 = *xform * Point3f::from(obj.vertices[v_indices.1 as usize]);
         let v1 = v1.perspective_divide();
         let p1 = Point3f::new(
-            (v1.x() + 1.0) * w as f32 / 2.0,
-            h as f32 - ((v1.y() + 1.0) * h as f32 / 2.0),
+            (v1.x() + 1.0) * width as f32 / 2.0,
+            height as f32 - ((v1.y() + 1.0) * height as f32 / 2.0),
             v1.z(),
         );
         let v2 = *xform * Point3f::from(obj.vertices[v_indices.2 as usize]);
         let v2 = v2.perspective_divide();
         let p2 = Point3f::new(
-            (v2.x() + 1.0) * w as f32 / 2.0,
-            h as f32 - ((v2.y() + 1.0) * h as f32 / 2.0),
+            (v2.x() + 1.0) * width as f32 / 2.0,
+            height as f32 - ((v2.y() + 1.0) * height as f32 / 2.0),
             v2.z(),
         );
 

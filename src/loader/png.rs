@@ -24,19 +24,21 @@ pub struct Png {
 impl Png {
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Png> {
         let f = File::open(path)?;
-        // TODO for some reason reading chunk type fails if capacity is a bit below this, investigate
-        let mut reader = DigestReader::new(BufReader::new(f), Crc32::new());
+        Png::from_reader(f)
+    }
 
+    pub fn from_reader<R: Read>(reader: R) -> Result<Png> {
+        let mut digest_reader = DigestReader::new(BufReader::new(reader), Crc32::new());
         // PNG header
-        read_png_header(&mut reader)?;
+        read_png_header(&mut digest_reader)?;
 
         // IHDR must be the first chunk.
-        let ihdr = read_ihdr(&mut reader)?;
+        let ihdr = read_ihdr(&mut digest_reader)?;
         println!("{:?}", ihdr);
 
         // Loop through the chunks, copying data to `compressed_data`
         let mut compressed_data: Vec<u8> = Vec::new();
-        while process_chunk(&mut reader, &mut compressed_data)? {}
+        while process_chunk(&mut digest_reader, &mut compressed_data)? {}
 
         let mut decompressed_data: Vec<u8> = Vec::new();
         zlib::decompress(&compressed_data, &mut decompressed_data)?;

@@ -309,7 +309,7 @@ pub fn extract_alphabet<R: Read>(
                 copy_last_length(times, &mut literal_code_lengths, &mut cl_symbol)?;
             }
             ExtractAction::RepeatZero(times) => {
-                repeat_zero(times, &mut literal_code_lengths, &mut cl_symbol)?;
+                repeat_zero(times, &mut literal_code_lengths, &mut cl_symbol);
             }
         }
     }
@@ -336,16 +336,10 @@ fn copy_last_length(
     }
 }
 
-fn repeat_zero(
-    times: u8,
-    literal_code_lengths: &mut Vec<(u16, u8)>,
-    cl_symbol: &mut u16,
-) -> Result<()> {
+fn repeat_zero(times: u8, literal_code_lengths: &mut Vec<(u16, u8)>, cl_symbol: &mut u16) {
     // add one to handle repeats
     literal_code_lengths.push((*cl_symbol, 0));
     *cl_symbol += times as u16;
-
-    Ok(())
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]

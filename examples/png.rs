@@ -4,9 +4,9 @@ use sdl2::keyboard::Keycode;
 use sdl2::pixels::{Color, PixelFormatEnum};
 use sdl2::render::{BlendMode, Canvas};
 use sdl2::video::Window;
-use vekotin::geometry::line_segment::{LineSegment, LineSegment2i};
-use vekotin::geometry::Point2i;
-use vekotin::gfx;
+
+
+
 use vekotin::loader::png;
 use vekotin::loader::png::Png;
 
@@ -34,7 +34,7 @@ impl Game {
         println!("{}", img.bytes_per_pixel);
         // We create a window.
         let window = video_subsystem
-            .window("sdl2 demo", img.width, img.height)
+            .window("PNG decoder demo", img.width, img.height)
             .build()
             .expect("failed to build window");
 

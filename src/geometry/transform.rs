@@ -44,6 +44,7 @@ impl Transform {
         .into()
     }
 
+    #[allow(clippy::many_single_char_names)]
     pub fn frustum_projection(fov_y: f32, s: f32, near: f32, far: f32) -> Self {
         let g = 1.0 / (fov_y * 0.5).tan();
         let k = far / (far - near);
@@ -94,9 +95,10 @@ impl Transform {
         .into()
     }
 
-    pub fn rev_frustum_projection(fov_y: f32, s: f32, n: f32, f: f32) -> Self {
+    #[allow(clippy::many_single_char_names)]
+    pub fn reverse_frustum_projection(fov_y: f32, s: f32, near: f32, far: f32) -> Self {
         let g = 1.0 / (fov_y * 0.5).tan();
-        let k = n / (n - f);
+        let k = near / (near - far);
 
         Matrix4f::new(
             g / s,
@@ -110,7 +112,7 @@ impl Transform {
             0.0,
             0.0,
             k,
-            -f * k,
+            -far * k,
             0.0,
             0.0,
             1.0,

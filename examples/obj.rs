@@ -9,7 +9,7 @@ use vekotin::geometry::transform::Transform;
 use vekotin::gfx;
 use vekotin::loader::obj::Obj;
 use vekotin::loader::png::Png;
-use vekotin::math::{Matrix3f, Vec3f};
+use vekotin::math::{Vec3f};
 
 pub struct Game {
     event_pump: sdl2::EventPump,
