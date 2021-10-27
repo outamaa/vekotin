@@ -12,4 +12,5 @@ compression = { path = "../compression" }
 digest = { path = "../digest" }
 fiddling = { path = "../fiddling" }
 math = { path = "../math" }
-# lazy_static = "1.4"
+rand = "0.8"
+

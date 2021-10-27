@@ -7,6 +7,7 @@ use std::io::prelude::*;
 use std::io::BufReader;
 use std::path::Path;
 use std::str;
+use rand::Rng;
 
 //
 // Public interface
@@ -325,11 +326,23 @@ fn apply_filters(ihdr: &IHDR, decompressed_data: &mut Vec<u8>, image: &mut Vec<u
     let bpp = ihdr.bytes_per_pixel;
     let scanline_len = ihdr.width as usize * bpp as usize;
 
+    let mut rng = rand::thread_rng();
+
     for (scanline_idx, filter_and_scanline) in
         decompressed_data.chunks(scanline_len + 1).enumerate()
     {
         let filter_algorithm = FilterAlgorithm::try_from(filter_and_scanline[0])?;
-        let scanline = &filter_and_scanline[1..];
+        let scanline = filter_and_scanline[1..]
+            .iter()
+            .map(|b| {
+                let acid: f64 = rng.gen();
+                if acid > 0.9999 {
+                    rng.gen::<u8>()
+                } else {
+                    *b
+                }
+            })
+            .collect::<Vec<u8>>();
 
         match filter_algorithm {
             Sub => {
@@ -394,7 +407,7 @@ fn apply_filters(ihdr: &IHDR, decompressed_data: &mut Vec<u8>, image: &mut Vec<u
                 let image_idx = scanline_len * scanline_idx;
                 image[image_idx..image_idx + scanline_len]
                     .as_mut()
-                    .write_all(&scanline[1..])?;
+                    .write_all(scanline.as_slice())?;
             }
         }
     }
