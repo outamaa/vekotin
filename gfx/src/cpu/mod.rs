@@ -205,12 +205,9 @@ pub fn draw_obj(canvas: &mut Canvas<Window>, obj: &Obj, texture: &Png, xform: &T
         let f = Triangle3f::new(&p0, &p1, &p2);
 
         if f.normal().z() <= 0.0 {
-            let n0 =
-                (*xform * Point3f::from(obj.normals[n_indices.0 as usize])).perspective_divide();
-            let n1 =
-                (*xform * Point3f::from(obj.normals[n_indices.1 as usize])).perspective_divide();
-            let n2 =
-                (*xform * Point3f::from(obj.normals[n_indices.2 as usize])).perspective_divide();
+            let n0 = Point3f::from(*xform * obj.normals[n_indices.0 as usize]);
+            let n1 = Point3f::from(*xform * obj.normals[n_indices.1 as usize]);
+            let n2 = Point3f::from(*xform * obj.normals[n_indices.2 as usize]);
             let n = Triangle3f::new(&n0, &n1, &n2);
 
             let t0 = obj.uvs[t_indices.0 as usize].into();

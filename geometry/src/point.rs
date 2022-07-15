@@ -82,6 +82,10 @@ impl Point4f {
     pub fn perspective_divide(&self) -> Point3f {
         Point((self.0 / self.0.w()).xyz())
     }
+
+    pub fn xyz(&self) -> Point3f {
+        Point(self.0.xyz())
+    }
 }
 
 impl<T: VecElem, const N: usize> Add<Vector<T, N>> for Point<T, N> {

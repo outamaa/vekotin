@@ -3,6 +3,7 @@ use crate::{Point2, Point2f, Point3, Point3f};
 use math::vector::{VecElem, Zero};
 use math::{Vec3, Vector};
 
+#[derive(Debug)]
 pub struct Triangle<'a, T: VecElem, const N: usize> {
     pub points: [&'a Point<T, N>; 3],
 }
@@ -165,6 +166,7 @@ impl<'a, T: VecElem + PartialOrd> Triangle<'a, T, 3> {
     /// assert_eq!(triangle.barycentric_coordinates(&p2), Some(Point3f::new(0.0, 0.0, 1.0)));
     /// ```
     pub fn barycentric_coordinates(&self, p: &Point3<T>) -> Option<Point3f> {
+        // TODO this works for orthographic projection, need to implement perspective correct coordinates for perspective projection
         let n = self.normal();
         let a2 = n.length_squared();
 
