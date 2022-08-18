@@ -1,6 +1,7 @@
 use anyhow::Result;
 use geometry::transform::Transform;
-use gfx;
+use geometry::Point3f;
+use gfx::camera::Camera;
 use loader::obj::Obj;
 use loader::png::Png;
 use math::Vec3f;
@@ -14,6 +15,7 @@ use sdl2::TimerSubsystem;
 pub struct Game {
     event_pump: sdl2::EventPump,
     canvas: Canvas<Window>,
+    camera: Camera,
     timer: TimerSubsystem,
     ticks: u32,
     obj: Obj,
@@ -39,12 +41,17 @@ impl Game {
             .into_canvas()
             .build()
             .expect("failed to build window's canvas");
+        let camera = Camera {
+            xform: Transform::translation(Vec3f::new(0.0, -3.0, 0.0)),
+            projection: Transform::infinite_projection(2.0, 1.0, 0.1, 0.001),
+        };
 
         let event_pump = sdl_context.event_pump().unwrap();
 
         Ok(Self {
             event_pump,
             canvas,
+            camera,
             timer,
             ticks: 0,
             obj,
@@ -75,19 +82,24 @@ impl emscripten_main_loop::MainLoop for Game {
                 _ => {}
             }
         }
+
+        self.camera.look_at(Point3f::new(0., 0., 0.));
+        // self.camera.dolly(-0.02);
+
         self.canvas.set_draw_color(Color::RGB(0, 0, 0));
         self.canvas.clear();
 
-        let rot = Transform::infinite_projection(1.0, 1.0, 0.1, 0.001)
-            * Transform::translation(Vec3f::new(0.0, 0.0, -3.0))
-            * Transform::rotation_y(self.angle)
-            * Transform::rotation_z(3.141);
+        let object_transform =
+            Transform::translation(Vec3f::new(0.0, 0.0, 0.0)) * Transform::rotation_z(self.angle);
+        let view = self.camera.view();
+        let rot = self.camera.projection * view.unwrap() * object_transform;
+
         gfx::cpu::draw_obj(&mut self.canvas, &self.obj, &self.texture, &rot);
 
         self.canvas.present();
 
         if self.rotating {
-            self.angle += 0.05;
+            self.angle += 0.005;
         }
         let ticks = self.timer.ticks();
         let delta = ticks - self.ticks;

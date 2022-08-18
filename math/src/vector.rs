@@ -573,3 +573,9 @@ impl<T: VecElem> From<Vec3<T>> for Vec4<T> {
         Self::new(v.x(), v.y(), v.z(), T::zero())
     }
 }
+
+impl<T: VecElem> From<Vec4<T>> for Vec3<T> {
+    fn from(v: Vec4<T>) -> Self {
+        Self::new(v.x(), v.y(), v.z())
+    }
+}

@@ -1,4 +1,4 @@
-use crate::vector::{Vec3, VecElem, Vector};
+use crate::vector::{Vec3, Vec3f, VecElem, Vector};
 use crate::{Vec2, Vec4};
 pub use num::{Float, One, Zero};
 use std::iter::FromIterator;
@@ -272,6 +272,7 @@ impl<T: Float + VecElem + Mul<Matrix3<T>, Output = Matrix3<T>>> Matrix3<T> {
             + sin_theta * Matrix3::cross(a)
     }
 
+    /// # Examples
     ///
     /// ```rust
     /// use math::matrix::*;
@@ -284,7 +285,7 @@ impl<T: Float + VecElem + Mul<Matrix3<T>, Output = Matrix3<T>>> Matrix3<T> {
     /// assert_eq!(id.inverse().unwrap(), id);
     /// assert_eq!(ortho.inverse().unwrap(), ortho.transpose());
     /// ```
-    pub fn inverse(&self) -> Option<Matrix3<T>> {
+    pub fn inverse(&self) -> Option<Self> {
         let a = self.col(0);
         let b = self.col(1);
         let c = self.col(2);
@@ -300,6 +301,71 @@ impl<T: Float + VecElem + Mul<Matrix3<T>, Output = Matrix3<T>>> Matrix3<T> {
             let inv_det = T::one() / det;
             Some(Matrix3::from_rows(r0 * inv_det, r1 * inv_det, r2 * inv_det))
         }
+    }
+}
+
+impl Matrix4f {
+    /// # Examples
+    ///
+    /// ```rust
+    /// use math::matrix::*;
+    ///
+    /// let zero = Matrix4f::zero();
+    /// let id = Matrix4f::one();
+    ///
+    /// assert_eq!(zero.inverse(), None);
+    /// assert_eq!(id.inverse().unwrap(), id);
+    /// ```
+    pub fn inverse(&self) -> Option<Self> {
+        // Implementation from Foundations of Game Engine Development, Volume 1
+        let a: Vec3f = self.col(0).into();
+        let b: Vec3f = self.col(1).into();
+        let c: Vec3f = self.col(2).into();
+        let d: Vec3f = self.col(3).into();
+
+        let x = self.get(3, 0);
+        let y = self.get(3, 1);
+        let z = self.get(3, 2);
+        let w = self.get(3, 3);
+
+        let mut s = a.cross(b);
+        let mut t = c.cross(d);
+        let mut u = a * y - b * x;
+        let mut v = c * w - d * z;
+
+        let det = s.dot(v) + t.dot(u);
+        if det == 0.0 {
+            return None;
+        }
+        let inv_det = 1.0 / det;
+        s = inv_det * s;
+        t = inv_det * t;
+        u = inv_det * u;
+        v = inv_det * v;
+
+        let r0 = b.cross(v) + t * y;
+        let r1 = v.cross(a) - t * x;
+        let r2 = d.cross(u) + s * w;
+        let r3 = u.cross(c) - s * z;
+
+        Some(Self::new(
+            r0.x(),
+            r0.y(),
+            r0.z(),
+            -b.dot(t),
+            r1.x(),
+            r1.y(),
+            r1.z(),
+            a.dot(t),
+            r2.x(),
+            r2.y(),
+            r2.z(),
+            -d.dot(s),
+            r3.x(),
+            r3.y(),
+            r3.z(),
+            c.dot(s),
+        ))
     }
 }
 

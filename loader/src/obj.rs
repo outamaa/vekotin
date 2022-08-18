@@ -16,7 +16,7 @@ use std::path::Path;
 
 type TriangleIndexTriple = (u32, u32, u32);
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Default)]
 pub struct Obj {
     // TODO: use points for vertices and uvs after implementing Transform
     pub vertices: Vec<Vec3f>,
@@ -28,20 +28,9 @@ pub struct Obj {
 }
 
 impl Obj {
-    pub fn new() -> Self {
-        Obj {
-            vertices: Vec::new(),
-            uvs: Vec::new(),
-            normals: Vec::new(),
-            vertex_index_triples: Vec::new(),
-            uv_index_triples: Vec::new(),
-            normal_index_triples: Vec::new(),
-        }
-    }
-
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self> {
         let f = File::open(path)?;
-        let mut obj = Obj::new();
+        let mut obj = Obj::default();
 
         for (line_num, maybe_line) in io::BufReader::new(f).lines().enumerate() {
             let line = maybe_line?;
@@ -49,7 +38,7 @@ impl Obj {
                 continue;
             }
             let mut elems = line.split_whitespace();
-            let line_type = elems.next().ok_or(anyhow!("No line type"))?;
+            let line_type = elems.next().ok_or_else(|| anyhow!("No line type"))?;
             match line_type {
                 "v" => {
                     obj.vertices.push(parse_vec3f(elems)?);
@@ -92,11 +81,11 @@ impl Obj {
 fn parse_vec2f<'a, T: Iterator<Item = &'a str>>(mut elements: T) -> Result<Vec2f> {
     let x = elements
         .next()
-        .ok_or(anyhow!("x not found"))?
+        .ok_or_else(|| anyhow!("x not found"))?
         .parse::<f32>()?;
     let y = elements
         .next()
-        .ok_or(anyhow!("y not found"))?
+        .ok_or_else(|| anyhow!("y not found"))?
         .parse::<f32>()?;
     Ok(Vec2f::new(x, y))
 }
@@ -104,15 +93,15 @@ fn parse_vec2f<'a, T: Iterator<Item = &'a str>>(mut elements: T) -> Result<Vec2f
 fn parse_vec3f<'a, T: Iterator<Item = &'a str>>(mut elements: T) -> Result<Vec3f> {
     let x = elements
         .next()
-        .ok_or(anyhow!("x not found"))?
+        .ok_or_else(|| anyhow!("x not found"))?
         .parse::<f32>()?;
     let y = elements
         .next()
-        .ok_or(anyhow!("y not found"))?
+        .ok_or_else(|| anyhow!("y not found"))?
         .parse::<f32>()?;
     let z = elements
         .next()
-        .ok_or(anyhow!("z not found"))?
+        .ok_or_else(|| anyhow!("z not found"))?
         .parse::<f32>()?;
     Ok(Vec3f::new(x, y, z))
 }
@@ -156,15 +145,15 @@ fn parse_face_index_triple<'a, T: Iterator<Item = &'a str>>(
 ) -> Result<FaceIndexTriple> {
     let v = elements
         .next()
-        .ok_or(anyhow!("v not found"))?
+        .ok_or_else(|| anyhow!("v not found"))?
         .parse::<u32>()?;
     let vt = elements
         .next()
-        .ok_or(anyhow!("vt not found"))?
+        .ok_or_else(|| anyhow!("vt not found"))?
         .parse::<u32>()?;
     let vn = elements
         .next()
-        .ok_or(anyhow!("vn not found"))?
+        .ok_or_else(|| anyhow!("vn not found"))?
         .parse::<u32>()?;
 
     Ok((v, vt, vn))

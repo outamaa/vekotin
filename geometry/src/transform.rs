@@ -6,14 +6,24 @@ use std::ops::Mul;
 pub struct Transform(Matrix4f);
 
 impl Transform {
+    pub fn as_matrix(&self) -> &Matrix4f {
+        &self.0
+    }
+
+    pub fn as_matrix_mut(&mut self) -> &mut Matrix4f {
+        &mut self.0
+    }
+
+    pub fn inverse(&self) -> Option<Transform> {
+        self.as_matrix().inverse().map(|m| m.into())
+    }
+
     pub fn rotation_x(theta: f32) -> Self {
         Matrix3f::rotation_x(theta).into()
     }
-
     pub fn rotation_y(theta: f32) -> Self {
         Matrix3f::rotation_y(theta).into()
     }
-
     pub fn rotation_z(theta: f32) -> Self {
         Matrix3f::rotation_z(theta).into()
     }
@@ -152,6 +162,12 @@ impl From<Matrix4f> for Transform {
     }
 }
 
+impl From<Transform> for Matrix4f {
+    fn from(t: Transform) -> Self {
+        t.0
+    }
+}
+
 impl From<Matrix3f> for Transform {
     fn from(m: Matrix3f) -> Self {
         Self(Matrix4f::from(m))
@@ -180,6 +196,14 @@ impl Mul<Transform> for Transform {
     type Output = Transform;
 
     fn mul(self, rhs: Transform) -> Self::Output {
+        (self.0 * rhs.0).into()
+    }
+}
+
+impl Mul<&mut Transform> for Transform {
+    type Output = Transform;
+
+    fn mul(self, rhs: &mut Transform) -> Self::Output {
         (self.0 * rhs.0).into()
     }
 }
