@@ -65,6 +65,11 @@ impl Camera {
         self.move_by(forward * amount)
     }
 
+    pub fn truck(&mut self, amount: f32) {
+        let right = self.right();
+        self.move_by(right * amount);
+    }
+
     /// Return the up direction of the camera as a unit vector, in world coordinates
     pub fn up(&self) -> Vec3f {
         -self.down()

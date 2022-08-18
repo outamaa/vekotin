@@ -30,8 +30,8 @@ impl Game {
         let video_subsystem = sdl_context.video().expect("failed to get video context");
         let timer = sdl_context.timer().expect("failed to get timer subsystem");
 
-        let obj = Obj::from_file("assets/head.obj")?;
-        let texture = Png::from_file("assets/head_diffuse.png")?;
+        let obj = Obj::from_file("assets/cube.obj")?;
+        let texture = Png::from_file("assets/tex.png")?;
         // We create a window.
         let window = video_subsystem
             .window("sdl2 demo", 1200, 1200)
@@ -41,10 +41,11 @@ impl Game {
             .into_canvas()
             .build()
             .expect("failed to build window's canvas");
-        let camera = Camera {
-            xform: Transform::translation(Vec3f::new(0.0, -3.0, 0.0)),
-            projection: Transform::infinite_projection(2.0, 1.0, 0.1, 0.001),
+        let mut camera = Camera {
+            xform: Transform::translation(Vec3f::new(-10.0, 0.0, 0.0)),
+            projection: Transform::infinite_projection(1.0, 1.0, 0.1, 0.001),
         };
+        camera.look_at(Point3f::new(0., 0., 0.));
 
         let event_pump = sdl_context.event_pump().unwrap();
 
@@ -79,18 +80,44 @@ impl emscripten_main_loop::MainLoop for Game {
                 } => {
                     self.rotating = !self.rotating;
                 }
+                Event::KeyDown {
+                    keycode: Some(Keycode::Right),
+                    ..
+                } => {
+                    self.camera.truck(0.1);
+                }
+                Event::KeyDown {
+                    keycode: Some(Keycode::Left),
+                    ..
+                } => {
+                    self.camera.truck(-0.1);
+                }
+                Event::KeyDown {
+                    keycode: Some(Keycode::Up),
+                    ..
+                } => {
+                    self.camera.dolly(0.1);
+                }
+                Event::KeyDown {
+                    keycode: Some(Keycode::Down),
+                    ..
+                } => {
+                    self.camera.dolly(-0.1);
+                }
+                Event::KeyDown {
+                    keycode: Some(Keycode::A),
+                    ..
+                } => {
+                    self.camera.look_at(Point3f::new(0., 0., 0.));
+                }
                 _ => {}
             }
         }
 
-        self.camera.look_at(Point3f::new(0., 0., 0.));
-        // self.camera.dolly(-0.02);
-
         self.canvas.set_draw_color(Color::RGB(0, 0, 0));
         self.canvas.clear();
 
-        let object_transform =
-            Transform::translation(Vec3f::new(0.0, 0.0, 0.0)) * Transform::rotation_z(self.angle);
+        let object_transform = Transform::rotation_y(self.angle);
         let view = self.camera.view();
         let rot = self.camera.projection * view.unwrap() * object_transform;
 

@@ -150,11 +150,12 @@ pub fn draw_triangle(
                     } else {
                         let p = triangle.interpolate(&b);
                         let n_z = normal_triangle.interpolate(&b).z();
+                        let coeff = 1.0; //n_z * n_z;
                         let c = interpolate_color_from_texture(texture, texture_triangle, &b);
                         let c = Color::RGB(
-                            (c.r as f32 * n_z) as u8,
-                            (c.g as f32 * n_z) as u8,
-                            (c.b as f32 * n_z) as u8,
+                            (c.r as f32 * coeff) as u8,
+                            (c.g as f32 * coeff) as u8,
+                            (c.b as f32 * coeff) as u8,
                         );
                         if z_buffer.get(x as u32, y as u32) < p.z() {
                             z_buffer.set(x as u32, y as u32, p.z());
