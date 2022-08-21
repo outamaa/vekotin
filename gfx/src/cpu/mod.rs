@@ -150,7 +150,7 @@ pub fn draw_triangle(
                     } else {
                         let p = triangle.interpolate(&b);
                         let n_z = normal_triangle.interpolate(&b).z();
-                        let coeff = 1.0; //n_z * n_z;
+                        let coeff = n_z * n_z;
                         let c = interpolate_color_from_texture(texture, texture_triangle, &b);
                         let c = Color::RGB(
                             (c.r as f32 * coeff) as u8,
@@ -168,7 +168,14 @@ pub fn draw_triangle(
     }
 }
 
-pub fn draw_obj(canvas: &mut Canvas<Window>, obj: &Obj, texture: &Png, xform: &Transform) {
+pub fn draw_obj(
+    canvas: &mut Canvas<Window>,
+    obj: &Obj,
+    texture: &Png,
+    view_xform: Transform,
+    projection_xform: Transform,
+) {
+    let view_xform = projection_xform * view_xform;
     let viewport = canvas.viewport();
     let width = viewport.width();
     let height = viewport.height();
@@ -180,7 +187,7 @@ pub fn draw_obj(canvas: &mut Canvas<Window>, obj: &Obj, texture: &Png, xform: &T
         let t_indices = &obj.uv_index_triples[i];
         let n_indices = &obj.normal_index_triples[i];
 
-        let v0 = *xform * Point3f::from(obj.vertices[v_indices.0 as usize]);
+        let v0 = view_xform * Point3f::from(obj.vertices[v_indices.0 as usize]);
         let v0 = v0.perspective_divide();
         // Project the 3D points onto the canvas, orthographic projection
         let p0 = Point3f::new(
@@ -188,14 +195,14 @@ pub fn draw_obj(canvas: &mut Canvas<Window>, obj: &Obj, texture: &Png, xform: &T
             height as f32 - ((v0.y() + 1.0) * height as f32 / 2.0),
             v0.z(),
         );
-        let v1 = *xform * Point3f::from(obj.vertices[v_indices.1 as usize]);
+        let v1 = view_xform * Point3f::from(obj.vertices[v_indices.1 as usize]);
         let v1 = v1.perspective_divide();
         let p1 = Point3f::new(
             (v1.x() + 1.0) * width as f32 / 2.0,
             height as f32 - ((v1.y() + 1.0) * height as f32 / 2.0),
             v1.z(),
         );
-        let v2 = *xform * Point3f::from(obj.vertices[v_indices.2 as usize]);
+        let v2 = view_xform * Point3f::from(obj.vertices[v_indices.2 as usize]);
         let v2 = v2.perspective_divide();
         let p2 = Point3f::new(
             (v2.x() + 1.0) * width as f32 / 2.0,
@@ -206,9 +213,9 @@ pub fn draw_obj(canvas: &mut Canvas<Window>, obj: &Obj, texture: &Png, xform: &T
         let f = Triangle3f::new(&p0, &p1, &p2);
 
         if f.normal().z() <= 0.0 {
-            let n0 = Point3f::from(*xform * obj.normals[n_indices.0 as usize]);
-            let n1 = Point3f::from(*xform * obj.normals[n_indices.1 as usize]);
-            let n2 = Point3f::from(*xform * obj.normals[n_indices.2 as usize]);
+            let n0 = Point3f::from(view_xform * obj.normals[n_indices.0 as usize]);
+            let n1 = Point3f::from(view_xform * obj.normals[n_indices.1 as usize]);
+            let n2 = Point3f::from(view_xform * obj.normals[n_indices.2 as usize]);
             let n = Triangle3f::new(&n0, &n1, &n2);
 
             let t0 = obj.uvs[t_indices.0 as usize].into();

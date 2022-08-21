@@ -117,11 +117,16 @@ impl emscripten_main_loop::MainLoop for Game {
         self.canvas.set_draw_color(Color::RGB(0, 0, 0));
         self.canvas.clear();
 
-        let object_transform = Transform::rotation_y(self.angle);
-        let view = self.camera.view();
-        let rot = self.camera.projection * view.unwrap() * object_transform;
+        let object_transform = Transform::rotation_x(self.angle);
+        let view = self.camera.view().unwrap() * object_transform;
 
-        gfx::cpu::draw_obj(&mut self.canvas, &self.obj, &self.texture, &rot);
+        gfx::cpu::draw_obj(
+            &mut self.canvas,
+            &self.obj,
+            &self.texture,
+            view,
+            self.camera.projection,
+        );
 
         self.canvas.present();
 
