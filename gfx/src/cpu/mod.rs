@@ -63,7 +63,7 @@ pub struct ZBuffer {
 impl ZBuffer {
     fn new(width: u32, height: u32) -> Self {
         ZBuffer {
-            buf: vec![f32::MIN; (width * height) as usize],
+            buf: vec![f32::MAX; (width * height) as usize],
             width,
             height,
         }
@@ -157,7 +157,7 @@ pub fn draw_triangle(
                             (c.g as f32 * coeff) as u8,
                             (c.b as f32 * coeff) as u8,
                         );
-                        if z_buffer.get(x as u32, y as u32) < p.z() {
+                        if z_buffer.get(x as u32, y as u32) > p.z() {
                             z_buffer.set(x as u32, y as u32, p.z());
                             draw_point(canvas, x, y, c);
                         }
