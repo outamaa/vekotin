@@ -244,12 +244,15 @@ impl<T: VecElem> Vec3<T> {
     /// use math::matrix::Matrix3f;
     ///
     /// let zero = Vec3f::zero();
+    /// let one = Vec3f::new(1.0, 1.0, 1.0);
     /// let m_zero = Matrix3f::zero();
+    /// let m_all_ones = Matrix3f::new(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0);
     /// let i = Vec3f::new(1.0, 0.0, 0.0);
     /// let j = Vec3f::new(0.0, 1.0, 0.0);
     /// let k = Vec3f::new(0.0, 0.0, 1.0);
     ///
     /// assert_eq!(m_zero, zero.outer(zero));
+    /// assert_eq!(m_all_ones, one.outer(one));
     /// assert_eq!(m_zero, zero.outer(i));
     /// assert_eq!(j.outer(k),
     ///            Matrix3f::new(0.0, 0.0, 0.0,
@@ -279,6 +282,8 @@ impl<T: VecElem> Vec3<T> {
     /// let k = Vec3f::new(0.0, 0.0, 1.0);
     ///
     /// assert_eq!(zero, i.cross(i));
+    /// assert_eq!(zero, j.cross(j));
+    /// assert_eq!(zero, k.cross(k));
     /// assert_eq!(i, j.cross(k));
     /// assert_eq!(j, k.cross(i));
     /// assert_eq!(k, i.cross(j));
