@@ -37,13 +37,13 @@ impl Camera {
     /// assert_eq!(camera.forward(), Vec3f::new(1.0, 0.0, 0.0));
     /// ```
     pub fn look_at(&mut self, p: Point3f) {
-        let forward = (p - self.location()).unit();
+        let forward = p - self.location();
         let right = Vec3f::new(forward.y(), -forward.x(), 0.);
         let down = right.cross(forward);
         self.xform = Transform::from(Matrix4f::from_columns(
-            right.xyz0(),
-            down.xyz0(),
-            forward.xyz0(),
+            right.xyz0().unit(),
+            down.xyz0().unit(),
+            forward.xyz0().unit(),
             self.xform.as_matrix().col(3),
         ));
     }
