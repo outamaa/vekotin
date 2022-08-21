@@ -220,6 +220,8 @@ impl<T: Float + VecElem + Mul<Matrix3<T>, Output = Matrix3<T>>> Matrix3<T> {
     /// let k = Vec3f::new(0.0, 0.0, 1.0);
     ///
     /// assert_eq!(i.cross(j), Matrix3f::cross(i) * j);
+    /// assert_eq!(j.cross(k), Matrix3f::cross(j) * k);
+    /// assert_eq!(k.cross(i), Matrix3f::cross(k) * i);
     /// ```
     pub fn cross(a: Vec3<T>) -> Matrix3<T> {
         Matrix3::new(
@@ -228,7 +230,7 @@ impl<T: Float + VecElem + Mul<Matrix3<T>, Output = Matrix3<T>>> Matrix3<T> {
             a.y(),
             a.z(),
             T::zero(),
-            -a.z(),
+            -a.x(),
             -a.y(),
             a.x(),
             T::zero(),
@@ -253,12 +255,38 @@ impl<T: Float + VecElem + Mul<Matrix3<T>, Output = Matrix3<T>>> Matrix3<T> {
     /// use math::assert_eq_eps;
     /// use math::matrix::*;
     /// use math::vector::*;
-    /// use std::f32::consts::FRAC_PI_2;
+    /// use std::f32::consts::{FRAC_PI_2, PI};
     ///
-    /// let rot: Matrix3f = Matrix3f::rotation_z(FRAC_PI_2);
+    ///
     /// let i = Vec3f::new(1.0, 0.0, 0.0);
     /// let j = Vec3f::new(0.0, 1.0, 0.0);
+    /// let k = Vec3f::new(0.0, 0.0, 1.0);
+    ///
+    /// let rot: Matrix3f = Matrix3f::rotation_z(FRAC_PI_2);
     /// assert_eq_eps!(rot * i, j, 0.00000001);
+    /// let rot: Matrix3f = Matrix3f::rotation_z(-FRAC_PI_2);
+    /// assert_eq_eps!(rot * i, -j, 0.00000001);
+    /// let rot: Matrix3f = Matrix3f::rotation_z(PI);
+    /// assert_eq_eps!(rot * i, -i, 0.00000001);
+    /// let rot: Matrix3f = Matrix3f::rotation_z(FRAC_PI_2);
+    /// assert_eq_eps!(rot * j, -i, 0.00000001);
+    /// let rot: Matrix3f = Matrix3f::rotation_z(-FRAC_PI_2);
+    /// assert_eq_eps!(rot * j, i, 0.00000001);
+    /// let rot: Matrix3f = Matrix3f::rotation_z(PI);
+    /// assert_eq_eps!(rot * j, -j, 0.00000001);
+    ///
+    /// let rot: Matrix3f = Matrix3f::rotation_x(FRAC_PI_2);
+    /// assert_eq_eps!(rot * j, k, 0.00000001);
+    /// let rot: Matrix3f = Matrix3f::rotation_x(-FRAC_PI_2);
+    /// assert_eq_eps!(rot * j, -k, 0.00000001);
+    /// let rot: Matrix3f = Matrix3f::rotation_x(PI);
+    /// assert_eq_eps!(rot * j, -j, 0.00000001);
+    /// let rot: Matrix3f = Matrix3f::rotation_x(FRAC_PI_2);
+    /// assert_eq_eps!(rot * k, -j, 0.00000001);
+    /// let rot: Matrix3f = Matrix3f::rotation_x(-FRAC_PI_2);
+    /// assert_eq_eps!(rot * k, j, 0.00000001);
+    /// let rot: Matrix3f = Matrix3f::rotation_x(PI);
+    /// assert_eq_eps!(rot * k, -k, 0.00000001);
     /// ```
     pub fn rotation(theta: T, a: Vec3<T>) -> Matrix3<T> {
         let cos_theta = theta.cos();
