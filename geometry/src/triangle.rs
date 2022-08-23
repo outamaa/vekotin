@@ -1,7 +1,7 @@
 use crate::point::Point;
-use crate::{Point2, Point2f, Point3, Point3f};
+use crate::{Point2, Point2f, Point3, Point3f, Point4f};
 use math::vector::{VecElem, Zero};
-use math::{Vec3, Vector};
+use math::{Vec3, Vec3f, Vec4f, Vector};
 
 #[derive(Debug)]
 pub struct Triangle<'a, T: VecElem, const N: usize> {
@@ -179,13 +179,13 @@ impl<'a, T: VecElem + PartialOrd> Triangle<'a, T, 3> {
         let p1 = *self.points[1];
         let p2 = *self.points[2];
 
-        let u = (p2 - p1).cross(*p - p1).dot(n);
-        let v = (p0 - p2).cross(*p - p2).dot(n);
+        let u = (p2 - p0).cross(p0 - *p).dot(n);
+        let v = (p0 - *p).cross(p1 - p0).dot(n);
 
         Some(Point3::new(
+            (T::one() - (u + v) / a2).as_f32(),
             (u / a2).as_f32(),
             (v / a2).as_f32(),
-            (T::one() - (u + v) / a2).as_f32(),
         ))
     }
 
@@ -200,9 +200,79 @@ impl<'a, T: VecElem + PartialOrd> Triangle<'a, T, 3> {
     pub fn interpolate(&self, bary: &Point3f) -> Point3f {
         let mut v = Vector::zero();
         for i in 0..3 {
-            v = v + self.points[i].as_vector().as_f32() * bary[i];
+            v += self.points[i].as_vector().as_f32() * bary[i];
         }
         v.into()
+    }
+}
+
+impl<'a> Triangle4f<'a> {
+    /// # Examples
+    ///
+    /// ```rust
+    /// use geometry::triangle::*;
+    /// use geometry::{Point3f, Point4f};
+    /// use math::Vec3i;
+    ///
+    /// let p0 = Point4f::new(0., 0., 0., 1.);
+    /// let p1 = Point4f::new(2., 0., 0., 1.);
+    /// let p2 = Point4f::new(0., 2., 0., 1.);
+    ///
+    /// let triangle = Triangle::new(&p0, &p1, &p2);
+    ///
+    /// assert_eq!(triangle.barycentric_coordinates(&p0), Some(Point3f::new(1.0, 0.0, 0.0)));
+    /// assert_eq!(triangle.barycentric_coordinates(&p1), Some(Point3f::new(0.0, 1.0, 0.0)));
+    /// assert_eq!(triangle.barycentric_coordinates(&p2), Some(Point3f::new(0.0, 0.0, 1.0)));
+    /// ```
+    pub fn barycentric_coordinates(&self, p: &Point3f) -> Option<Point3f> {
+        let p0 = self.points[0].xyz();
+        let p1 = self.points[1].xyz();
+        let p2 = self.points[2].xyz();
+        let tri3f = Triangle::new(&p0, &p1, &p2);
+        tri3f.barycentric_coordinates(p)
+    }
+
+    /// Calculate perspective corrected barycentric coordinates
+    pub fn pc_barycentric_coordinates(&self, p: &Point3f) -> Option<Point3f> {
+        self.barycentric_coordinates(p).map(|bc| {
+            let u = bc.y();
+            let v = bc.z();
+
+            let w0 = self.points[0].w();
+            let w1 = self.points[1].w();
+            let w2 = self.points[2].w();
+
+            let w_inv = (1.0 - u - v) / w0 + u / w1 + v / w2;
+
+            let w = 1.0 / w_inv;
+
+            let u_pc = (w * u) / w1;
+            let v_pc = (w * v) / w2;
+
+            Point3f::new(1.0 - u_pc - v_pc, u_pc, v_pc)
+        })
+    }
+
+    pub fn contains(&self, p: &Point3f) -> bool {
+        let bary = self.barycentric_coordinates(p);
+        match bary {
+            None => false,
+            Some(p) => p.x() >= 0.0 && p.y() >= 0.0 && p.z() >= 0.0,
+        }
+    }
+
+    pub fn interpolate(&self, bary: &Point3f) -> Point4f {
+        let mut v = Vec4f::zero();
+        for i in 0..3 {
+            v = v + *self.points[i].as_vector() * bary[i];
+        }
+        v.into()
+    }
+
+    /// Calculate normal as if the points were 3D
+    pub fn normal(&self) -> Vec3f {
+        (self.points[1].as_vector().xyz() - self.points[0].as_vector().xyz())
+            .cross(self.points[2].as_vector().xyz() - self.points[0].as_vector().xyz())
     }
 }
 
@@ -213,3 +283,6 @@ pub type Triangle2i<'a> = Triangle2<'a, i32>;
 pub type Triangle3<'a, T> = Triangle<'a, T, 3>;
 pub type Triangle3f<'a> = Triangle3<'a, f32>;
 pub type Triangle3i<'a> = Triangle3<'a, i32>;
+
+pub type Triangle4<'a, T> = Triangle<'a, T, 4>;
+pub type Triangle4f<'a> = Triangle4<'a, f32>;

@@ -1,7 +1,7 @@
 use geometry::line_segment::LineSegment2i;
 use geometry::transform::Transform;
-use geometry::triangle::{Triangle2f, Triangle3f};
-use geometry::Point3f;
+use geometry::triangle::{Triangle2f, Triangle3f, Triangle4f};
+use geometry::{Point3f, Point4f};
 use loader::obj::Obj;
 use loader::png::Png;
 use sdl2::pixels::Color;
@@ -98,7 +98,7 @@ fn interpolate_color_from_texture(
 
 pub fn draw_triangle(
     canvas: &mut Canvas<Window>,
-    triangle: &Triangle3f,
+    triangle: &Triangle4f,
     normal_triangle: &Triangle3f,
     texture_triangle: &Triangle2f,
     texture: &Png,
@@ -140,7 +140,7 @@ pub fn draw_triangle(
             let y_f = y as f32;
             let p = Point3f::new(x_f, y_f, 0.0);
 
-            match triangle.barycentric_coordinates(&p) {
+            match triangle.pc_barycentric_coordinates(&p) {
                 None => {
                     continue;
                 }
@@ -190,27 +190,30 @@ pub fn draw_obj(
         let v0 = view_xform * Point3f::from(obj.vertices[v_indices.0 as usize]);
         let v0 = v0.perspective_divide();
         // Project the 3D points onto the canvas, orthographic projection
-        let p0 = Point3f::new(
+        let p0 = Point4f::new(
             (v0.x() + 1.0) * width as f32 / 2.0,
             height as f32 - ((v0.y() + 1.0) * height as f32 / 2.0),
             v0.z(),
+            v0.w(),
         );
         let v1 = view_xform * Point3f::from(obj.vertices[v_indices.1 as usize]);
         let v1 = v1.perspective_divide();
-        let p1 = Point3f::new(
+        let p1 = Point4f::new(
             (v1.x() + 1.0) * width as f32 / 2.0,
             height as f32 - ((v1.y() + 1.0) * height as f32 / 2.0),
             v1.z(),
+            v1.w(),
         );
         let v2 = view_xform * Point3f::from(obj.vertices[v_indices.2 as usize]);
         let v2 = v2.perspective_divide();
-        let p2 = Point3f::new(
+        let p2 = Point4f::new(
             (v2.x() + 1.0) * width as f32 / 2.0,
             height as f32 - ((v2.y() + 1.0) * height as f32 / 2.0),
             v2.z(),
+            v2.w(),
         );
 
-        let f = Triangle3f::new(&p0, &p1, &p2);
+        let f = Triangle4f::new(&p0, &p1, &p2);
 
         if f.normal().z() <= 0.0 {
             let n0 = Point3f::from(view_xform * obj.normals[n_indices.0 as usize]);

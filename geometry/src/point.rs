@@ -1,5 +1,5 @@
 use math::vector::{VecElem, Vector};
-use math::{Vec2, Vec3, Vec4};
+use math::{Vec2, Vec3, Vec4, Vec4f};
 use std::ops::{Add, Index, IndexMut, Sub};
 
 #[derive(Copy, Clone, Debug, PartialEq)]
@@ -79,12 +79,19 @@ impl<T: VecElem> Point4<T> {
 }
 
 impl Point4f {
-    pub fn perspective_divide(&self) -> Point3f {
-        Point((self.0 / self.0.w()).xyz())
+    pub fn perspective_divide(&self) -> Point4f {
+        let mut v = self.0 / self.0.w();
+        v[3] = self.0.w();
+
+        Point(v)
     }
 
     pub fn xyz(&self) -> Point3f {
         Point(self.0.xyz())
+    }
+
+    pub fn as_vec4f(&self) -> &Vec4f {
+        &self.0
     }
 }
 

@@ -11,6 +11,7 @@ use sdl2::pixels::Color;
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 use sdl2::TimerSubsystem;
+use std::f32::consts::FRAC_PI_2;
 
 pub struct Game {
     event_pump: sdl2::EventPump,
@@ -30,8 +31,8 @@ impl Game {
         let video_subsystem = sdl_context.video().expect("failed to get video context");
         let timer = sdl_context.timer().expect("failed to get timer subsystem");
 
-        let obj = Obj::from_file("assets/cube.obj")?;
-        let texture = Png::from_file("assets/tex.png")?;
+        let obj = Obj::from_file("assets/head.obj")?;
+        let texture = Png::from_file("assets/head_diffuse.png")?;
         // We create a window.
         let window = video_subsystem
             .window("sdl2 demo", 1200, 1200)
@@ -43,7 +44,7 @@ impl Game {
             .expect("failed to build window's canvas");
         let mut camera = Camera {
             xform: Transform::translation(Vec3f::new(-10.0, 0.0, 0.0)),
-            projection: Transform::infinite_projection(1.0, 1.0, 0.1, 0.001),
+            projection: Transform::infinite_projection(2.0, 1.0, 0.1, 0.001),
         };
         camera.look_at(Point3f::new(0., 0., 0.));
 
@@ -117,7 +118,7 @@ impl emscripten_main_loop::MainLoop for Game {
         self.canvas.set_draw_color(Color::RGB(0, 0, 0));
         self.canvas.clear();
 
-        let object_transform = Transform::rotation_x(self.angle);
+        let object_transform = Transform::rotation_z(self.angle) * Transform::rotation_x(FRAC_PI_2);
         let view = self.camera.view().unwrap() * object_transform;
 
         gfx::cpu::draw_obj(

@@ -1,6 +1,5 @@
-use geometry::point::Point;
 use geometry::transform::Transform;
-use geometry::{transform, Point3f};
+use geometry::Point3f;
 use math::{Matrix4f, Vec3f};
 
 /// A struct representing a camera looking at a scene. The camera's own
