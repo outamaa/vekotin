@@ -10,4 +10,4 @@ edition = "2018"
 anyhow = "1"
 emscripten_main_loop = "0.1.1"
 loader = { path = "../../loader" }
-sdl2 = "0.34"
+sdl2 = "0.35"

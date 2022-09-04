@@ -10,4 +10,3 @@ edition = "2018"
 geometry = { path = "../geometry" }
 loader = { path = "../loader" }
 math = { path = "../math" }
-sdl2 = "0.34"

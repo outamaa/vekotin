@@ -7,7 +7,7 @@ use loader::png::Png;
 use math::Vec3f;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
-use sdl2::pixels::Color;
+use sdl2::pixels::{Color, PixelFormatEnum};
 use sdl2::render::Canvas;
 use sdl2::video::Window;
 use sdl2::TimerSubsystem;
@@ -25,6 +25,9 @@ pub struct Game {
     rotating: bool,
 }
 
+static WIDTH: u32 = 1200;
+static HEIGHT: u32 = 1200;
+
 impl Game {
     pub fn new() -> Result<Self> {
         let sdl_context = sdl2::init().expect("failed to init SDL");
@@ -35,7 +38,7 @@ impl Game {
         let texture = Png::from_file("assets/head_diffuse.png")?;
         // We create a window.
         let window = video_subsystem
-            .window("sdl2 demo", 1200, 1200)
+            .window("sdl2 demo", WIDTH, HEIGHT)
             .build()
             .expect("failed to build window");
         let canvas: Canvas<Window> = window
@@ -44,7 +47,7 @@ impl Game {
             .expect("failed to build window's canvas");
         let mut camera = Camera {
             xform: Transform::translation(Vec3f::new(-10.0, 0.0, 0.0)),
-            projection: Transform::infinite_projection(2.0, 1.0, 0.1, 0.001),
+            projection: Transform::infinite_projection(1.0, 1.0, 0.1, 0.001),
         };
         camera.look_at(Point3f::new(0., 0., 0.));
 
@@ -115,20 +118,36 @@ impl emscripten_main_loop::MainLoop for Game {
             }
         }
 
-        self.canvas.set_draw_color(Color::RGB(0, 0, 0));
-        self.canvas.clear();
-
         let object_transform = Transform::rotation_z(self.angle) * Transform::rotation_x(FRAC_PI_2);
         let view = self.camera.view().unwrap() * object_transform;
 
-        gfx::cpu::draw_obj(
-            &mut self.canvas,
-            &self.obj,
-            &self.texture,
-            view,
-            self.camera.projection,
-        );
+        let texture_creator = self.canvas.texture_creator();
+        let mut texture = texture_creator
+            .create_texture_streaming(PixelFormatEnum::RGB24, WIDTH, HEIGHT)
+            .expect("Failed to create texture");
 
+        texture
+            .with_lock(None, |buffer: &mut [u8], _pitch: usize| {
+                let viewport = self.canvas.viewport();
+                let mut canvas = gfx::cpu::canvas::Canvas {
+                    buffer,
+                    width: viewport.width(),
+                    height: viewport.height(),
+                };
+                gfx::cpu::draw_obj(
+                    &mut canvas,
+                    &self.obj,
+                    &self.texture,
+                    view,
+                    self.camera.projection,
+                );
+            })
+            .expect("Failed to render on texture");
+
+        self.canvas.clear();
+        self.canvas
+            .copy(&texture, None, None)
+            .expect("Failed to copy texture to canvas");
         self.canvas.present();
 
         if self.rotating {

@@ -1,25 +1,19 @@
+pub mod canvas;
+
+use crate::color::Color;
+use canvas::Canvas;
 use geometry::line_segment::LineSegment2i;
 use geometry::transform::Transform;
 use geometry::triangle::{Triangle2f, Triangle3f, Triangle4f};
 use geometry::{Point3f, Point4f};
 use loader::obj::Obj;
 use loader::png::Png;
-use sdl2::pixels::Color;
-use sdl2::rect::Point;
-use sdl2::render::Canvas;
-use sdl2::video::Window;
 use std::cmp;
 use std::cmp::Ordering::Equal;
 use std::mem;
 
-// TODO: Maybe add some trait like Canvas, but for now let's start with something, ie. using SDL
-pub fn draw_point(canvas: &mut Canvas<Window>, x: i32, y: i32, color: Color) {
-    canvas.set_draw_color(color);
-    canvas.draw_point(Point::new(x, y)).expect("draw_point");
-}
-
 // Bresenham's line drawing algorithm, ported from ssloy/tinyrenderer
-pub fn draw_line_segment(canvas: &mut Canvas<Window>, line_segment: &LineSegment2i, color: Color) {
+pub fn draw_line_segment(canvas: &mut Canvas, line_segment: &LineSegment2i, color: Color) {
     let mut x0 = line_segment.start.x();
     let mut y0 = line_segment.start.y();
     let mut x1 = line_segment.end.x();
@@ -42,9 +36,9 @@ pub fn draw_line_segment(canvas: &mut Canvas<Window>, line_segment: &LineSegment
     let mut y = y0;
     for x in x0..=x1 {
         if steep {
-            draw_point(canvas, y as i32, x, color);
+            canvas.draw_point(y, x, color);
         } else {
-            draw_point(canvas, x, y as i32, color);
+            canvas.draw_point(x, y, color);
         }
         error += d_error;
         if error > 0.5 {
@@ -90,14 +84,14 @@ fn interpolate_color_from_texture(
     let y = texture.height - (coords.y() * texture.height as f32).floor() as u32;
     if x >= texture.width || y >= texture.height {
         println!("Invalid x or y: {} {}", x, y);
-        return Color::RGB(255, 0, 0);
+        return Color::rgb(255, 0, 0);
     }
     let i = (texture.bytes_per_pixel as u32 * (texture.width * y + x)) as usize;
-    Color::RGB(texture.data[i], texture.data[i + 1], texture.data[i + 2])
+    Color::rgb(texture.data[i], texture.data[i + 1], texture.data[i + 2])
 }
 
 pub fn draw_triangle(
-    canvas: &mut Canvas<Window>,
+    canvas: &mut Canvas,
     triangle: &Triangle4f,
     normal_triangle: &Triangle3f,
     texture_triangle: &Triangle2f,
@@ -152,14 +146,14 @@ pub fn draw_triangle(
                         let n_z = normal_triangle.interpolate(&b).z();
                         let coeff = n_z * n_z;
                         let c = interpolate_color_from_texture(texture, texture_triangle, &b);
-                        let c = Color::RGB(
+                        let c = Color::rgb(
                             (c.r as f32 * coeff) as u8,
                             (c.g as f32 * coeff) as u8,
                             (c.b as f32 * coeff) as u8,
                         );
                         if z_buffer.get(x as u32, y as u32) > p.z() {
                             z_buffer.set(x as u32, y as u32, p.z());
-                            draw_point(canvas, x, y, c);
+                            canvas.draw_point(x, y, c);
                         }
                     }
                 }
@@ -169,16 +163,15 @@ pub fn draw_triangle(
 }
 
 pub fn draw_obj(
-    canvas: &mut Canvas<Window>,
+    canvas: &mut Canvas,
     obj: &Obj,
     texture: &Png,
     view_xform: Transform,
     projection_xform: Transform,
 ) {
     let view_xform = projection_xform * view_xform;
-    let viewport = canvas.viewport();
-    let width = viewport.width();
-    let height = viewport.height();
+    let width = canvas.width;
+    let height = canvas.height;
 
     let mut z_buffer = ZBuffer::new(width, height);
 
